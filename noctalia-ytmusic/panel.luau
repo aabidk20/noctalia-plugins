@@ -197,6 +197,50 @@ local function request_extract(id)
     request("extract", { browser = id })
 end
 
+local function build_browser_cells()
+    local cells = {}
+    for _, b in ipairs(BROWSERS) do
+        local is_avail = state.available[b.id]
+        local is_current = (state.extracting and state.browser == b.id)
+        if is_current then
+            table.insert(cells, ui.button({
+                key = "browser-btn-" .. b.id,
+                glyph = b.icon,
+                text = "Extracting...",
+                variant = "primary",
+                flexGrow = 1,
+                controlSize = "md",
+                onClick = function() request_extract(b.id) end
+            }))
+        elseif is_avail then
+            table.insert(cells, ui.button({
+                key = "browser-btn-" .. b.id,
+                glyph = b.icon,
+                text = b.label,
+                variant = "outline",
+                flexGrow = 1,
+                controlSize = "md",
+                onClick = function() request_extract(b.id) end
+            }))
+        else
+            table.insert(cells, ui.column({
+                key = "browser-off-" .. b.id,
+                align = "center",
+                justify = "center",
+                gap = 2,
+                padding = 8,
+                borderWidth = 0,
+                fill = "surface_variant/0.25",
+                flexGrow = 1
+            }, {
+                ui.glyph({ name = b.icon, size = 16, color = "on_surface_variant/0.5" }),
+                ui.label({ text = b.label, fontSize = theme.fontCaption, color = "on_surface_variant/0.6" })
+            }))
+        end
+    end
+    return cells
+end
+
 local function build_topbar()
     return ui.row({ key = "topbar", align = "center", gap = 12, paddingH = 16, paddingV = 10, borderWidth = 0 }, {
         ui.input({
@@ -645,6 +689,11 @@ width = 54,
 end
 
 local function build_signin_prompt()
+    local browser_rows = {}
+    for _, row in ipairs(chunk_rows(build_browser_cells(), 3, "browser-grid", 8)) do
+        table.insert(browser_rows, row)
+    end
+
     return ui.column({
         key = "signin-prompt",
         align = "center",
@@ -655,30 +704,13 @@ local function build_signin_prompt()
     }, {
         ui.glyph({ name = "music", size = 44, color = "primary" }),
         ui.label({ text = "Noctalia YT Music", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
-        ui.label({ text = "Sign in with a browser to start listening", fontSize = theme.fontTitle, color = "on_surface_variant" }),
+        ui.label({ text = "Pick the browser you're signed into YouTube Music with", fontSize = theme.fontTitle, color = "on_surface_variant" }),
         ui.label({
             text = state.status_text,
             fontSize = theme.fontBody,
             color = state.status == "error" and "error" or "on_surface_variant"
         }),
-        ui.row({ gap = 8, align = "center" }, {
-            ui.button({
-                text = "Continue with browser cookies",
-                glyph = "login",
-                variant = "primary",
-                controlSize = "md",
-                onClick = function()
-                    on_nav("login")
-                    request("open_login", { browser = "default" })
-                end
-            }),
-            ui.button({
-                text = "Open login page",
-                variant = "outline",
-                controlSize = "md",
-                onClick = function() request("open_login", { browser = "default" }) end
-            })
-        })
+        ui.column({ gap = 8, width = "fill" }, browser_rows)
     })
 end
 
@@ -1135,46 +1167,7 @@ local function build_cookies_page()
 
     table.insert(page, ui.label({ text = "LOG IN & EXTRACT", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
-    local cells = {}
-    for _, b in ipairs(BROWSERS) do
-        local is_avail = state.available[b.id]
-        local is_current = (state.extracting and state.browser == b.id)
-        if is_current then
-            table.insert(cells, ui.button({
-                key = "browser-btn-" .. b.id,
-                glyph = b.icon,
-                text = "Extracting...",
-                variant = "primary",
-                flexGrow = 1,
-                controlSize = "md",
-                onClick = function() request_extract(b.id) end
-            }))
-        elseif is_avail then
-            table.insert(cells, ui.button({
-                key = "browser-btn-" .. b.id,
-                glyph = b.icon,
-                text = b.label,
-                variant = "outline",
-                flexGrow = 1,
-                controlSize = "md",
-                onClick = function() request_extract(b.id) end
-            }))
-        else
-            table.insert(cells, ui.column({
-                key = "browser-off-" .. b.id,
-                align = "center",
-                justify = "center",
-                gap = 2,
-                padding = 8,
-                borderWidth = 0,
-                fill = "surface_variant/0.25",
-                flexGrow = 1
-            }, {
-                ui.glyph({ name = b.icon, size = 16, color = "on_surface_variant/0.5" }),
-                ui.label({ text = b.label, fontSize = theme.fontCaption, color = "on_surface_variant/0.6" })
-            }))
-        end
-    end
+    local cells = build_browser_cells()
 
     for _, row in ipairs(chunk_rows(cells, 3, "browser-grid", 8)) do
         table.insert(page, row)
