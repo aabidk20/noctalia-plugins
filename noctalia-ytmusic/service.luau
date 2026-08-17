@@ -976,14 +976,18 @@ noctalia.state.watch(REQ, function(req)
                             end
                         end
                         state.playlist.tracks = merged
+                    end
+                    publish()
+                    noctalia.runAsync("true", function()
                         if api.save_playlist_cache then
                             api.save_playlist_cache(pid, state.playlist.tracks)
                         end
-                    end
-                    publish()
-                    if api and api.ensure_thumbnails then
-                        api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
-                    end
+                    end)
+                    noctalia.runAsync("true", function()
+                        if api and api.ensure_thumbnails then
+                            api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                        end
+                    end)
                 end)
             end
         end
@@ -994,40 +998,57 @@ noctalia.state.watch(REQ, function(req)
             state.playlist.fetching = true
             log("fetch_next_page for pid='" .. pid .. "'")
             if api and api.playlist_page then
-                api.playlist_page(pid, token, function(res)
-                    state.playlist.fetching = false
+                local function do_fetch(fetch_token)
+                    api.playlist_page(pid, fetch_token, function(res)
+                        local existing = {}
+                        for _, t in ipairs(state.playlist.tracks) do
+                            if t.id then existing[t.id] = true end
+                        end
 
-                    local existing = {}
-                    for _, t in ipairs(state.playlist.tracks) do
-                        if t.id then existing[t.id] = true end
-                    end
-
-                    local added_count = 0
-                    if res.tracks and #res.tracks > 0 then
-                        for _, tr in ipairs(res.tracks) do
-                            if tr.id and not existing[tr.id] then
-                                table.insert(state.playlist.tracks, tr)
-                                existing[tr.id] = true
-                                added_count = added_count + 1
+                        local added_count = 0
+                        if res.tracks and #res.tracks > 0 then
+                            for _, tr in ipairs(res.tracks) do
+                                if tr.id and not existing[tr.id] then
+                                    table.insert(state.playlist.tracks, tr)
+                                    existing[tr.id] = true
+                                    added_count = added_count + 1
+                                end
                             end
                         end
-                    end
 
-                    if added_count == 0 or not res.next_token or res.next_token == "" or res.next_token == token then
-                        state.playlist.next_token = nil
-                    else
-                        state.playlist.next_token = res.next_token
-                    end
+                        local new_token = res.next_token
+                        local token_valid = (new_token and new_token ~= "" and new_token ~= fetch_token)
 
-                    log("fetch_next_page: added " .. added_count .. " new tracks (total " .. #state.playlist.tracks .. "), next_token=" .. tostring(state.playlist.next_token ~= nil))
-                    if api.save_playlist_cache then
-                        api.save_playlist_cache(pid, state.playlist.tracks)
-                    end
-                    publish()
-                    if api and api.ensure_thumbnails then
-                        api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
-                    end
-                end)
+                        if added_count == 0 and token_valid then
+                            log("fetch_next_page: all duplicates, skipping to next page")
+                            noctalia.runAsync("true", function()
+                                do_fetch(new_token)
+                            end)
+                            return
+                        end
+
+                        if not token_valid then
+                            state.playlist.next_token = nil
+                        else
+                            state.playlist.next_token = new_token
+                        end
+
+                        state.playlist.fetching = false
+                        log("fetch_next_page: added " .. added_count .. " new tracks (total " .. #state.playlist.tracks .. "), next_token=" .. tostring(state.playlist.next_token ~= nil))
+                        publish()
+                        noctalia.runAsync("true", function()
+                            if api.save_playlist_cache then
+                                api.save_playlist_cache(pid, state.playlist.tracks)
+                            end
+                        end)
+                        noctalia.runAsync("true", function()
+                            if api and api.ensure_thumbnails then
+                                api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                            end
+                        end)
+                    end)
+                end
+                do_fetch(token)
             end
         end
     elseif req.action == "toggle" then

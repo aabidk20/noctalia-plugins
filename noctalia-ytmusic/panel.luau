@@ -55,6 +55,8 @@ local state = {
 
 local content_page = "home"
 local search_query = ""
+local playlist_view_page = 0
+local playlist_pending_advance = false
 
 local function request(action, payload)
     req_nonce = math.max(req_nonce + 1, os.time() * 1000)
@@ -159,6 +161,7 @@ local loading_track_id = nil
 
 local function open_playlist(pl)
     content_page = "playlist"
+    playlist_view_page = 0
     state.playlist.id = tostring(pl.id or "")
     state.playlist.title = tostring(pl.title or "Playlist")
     state.playlist.tracks = {}
@@ -674,12 +677,10 @@ width = 54,
                 if hovered_track_key ~= row_key then
                     hovered_track_key = row_key
                     request("prefetch", { item = item })
-                    render_panel()
                 end
             else
                 if hovered_track_key == row_key then
                     hovered_track_key = nil
-                    render_panel()
                 end
             end
         end
@@ -1026,37 +1027,88 @@ local function build_playlist_view()
 
     table.insert(view, ui.separator({ key = "sep-pl", color = "outline" }))
 
+    local PAGE_SIZE = 100
+    local total = #pl.tracks
+    local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))
+    if playlist_view_page >= total_pages then
+        playlist_view_page = math.max(0, total_pages - 1)
+    end
+    local page_start = playlist_view_page * PAGE_SIZE + 1
+    local page_end = math.min(page_start + PAGE_SIZE - 1, total)
+
     local tracks = {}
-    if #pl.tracks == 0 then
+    if total == 0 then
         table.insert(tracks, ui.label({
             text = pl.fetching and "Loading tracks..." or "No tracks found in playlist.",
             fontSize = theme.fontBody,
             color = "on_surface_variant"
         }))
     else
-        for idx, t in ipairs(pl.tracks) do
-            table.insert(tracks, media_row(t, idx, function()
-                request("play_with_queue", { item = t, index = idx, queue = pl.tracks })
-            end, state.player.id == t.id))
+        for abs_idx = page_start, page_end do
+            local t = pl.tracks[abs_idx]
+            if t then
+                table.insert(tracks, media_row(t, abs_idx, function()
+                    request("play_with_queue", { item = t, index = abs_idx, queue = pl.tracks })
+                end, state.player.id == t.id))
+            end
         end
 
-        if pl.next_token and pl.next_token ~= "" then
-            table.insert(tracks, ui.row({
-                key = "pl-more-btn",
-                align = "center",
-                justify = "center",
-                gap = 8,
-                padding = 10,
-                borderWidth = 0,
-                fill = "primary/0.12",
+        -- Pagination controls
+        local has_prev = (playlist_view_page > 0)
+        local has_next_page = (playlist_view_page < total_pages - 1)
+        local can_fetch_more = (pl.next_token and pl.next_token ~= "")
+        local has_next = has_next_page or can_fetch_more
+
+        local page_controls = {}
+        if has_prev then
+            table.insert(page_controls, ui.button({
+                key = "pl-prev-page",
+                text = "← Previous",
+                variant = "outline",
+                controlSize = "sm",
                 onClick = function()
-                    request("fetch_next_page", { playlist_id = pl.id, token = pl.next_token })
+                    playlist_view_page = playlist_view_page - 1
+                    render_panel()
                 end
-            }, {
-                ui.glyph({ name = "arrow-down", size = 16, color = "primary" }),
-                ui.label({ text = pl.fetching and "Loading more tracks..." or "Load More Tracks (" .. #pl.tracks .. " loaded)", fontSize = theme.fontHeading, fontWeight = "bold", color = "primary" })
             }))
         end
+
+        table.insert(page_controls, ui.label({
+            text = page_start .. "–" .. page_end .. " of " .. total,
+            fontSize = theme.fontBody,
+            fontWeight = "medium",
+            color = "on_surface_variant"
+        }))
+
+        if has_next then
+            table.insert(page_controls, ui.button({
+                key = "pl-next-page",
+                text = pl.fetching and "Loading..." or "Next →",
+                variant = "outline",
+                controlSize = "sm",
+                onClick = function()
+                    local cur_total = #state.playlist.tracks
+                    local cur_pages = math.max(1, math.ceil(cur_total / PAGE_SIZE))
+                    if playlist_view_page < cur_pages - 1 then
+                        playlist_view_page = playlist_view_page + 1
+                        render_panel()
+                    elseif state.playlist.next_token and state.playlist.next_token ~= "" then
+                        playlist_pending_advance = true
+                        request("fetch_next_page", { playlist_id = state.playlist.id, token = state.playlist.next_token })
+                        render_panel()
+                    end
+                end
+            }))
+        end
+
+        table.insert(tracks, ui.row({
+            key = "pl-pagination",
+            align = "center",
+            justify = "center",
+            gap = 12,
+            padding = 10,
+            borderWidth = 0
+        }, page_controls))
     end
 
     for _, item in ipairs(tracks) do
@@ -1363,9 +1415,14 @@ local function apply_state(s)
         state.library = s.library
     end
     if type(s.playlist) == "table" then
+        local old_count = #state.playlist.tracks
         for k, v in pairs(s.playlist) do state.playlist[k] = v end
         state.playlist.next_token = s.playlist.next_token
         state.playlist.fetching = (s.playlist.fetching == true)
+        if playlist_pending_advance and #state.playlist.tracks > old_count then
+            playlist_pending_advance = false
+            playlist_view_page = playlist_view_page + 1
+        end
     end
     if type(s.liked_ids) == "table" then
         state.liked_ids = s.liked_ids
