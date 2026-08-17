@@ -677,7 +677,7 @@ width = 54,
                     render_panel()
                 end
             else
-                if hovered_track_key ~= nil then
+                if hovered_track_key == row_key then
                     hovered_track_key = nil
                     render_panel()
                 end

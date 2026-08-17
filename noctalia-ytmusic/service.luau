@@ -198,6 +198,20 @@ echo "KEPT=$KEPT"
 echo "LOG=$LOG"
 ]=]
 
+local function fetch_home_thumbs()
+    if not (api and api.ensure_thumbnails) then return end
+    local combined = {}
+    if type(state.quick_picks) == "table" then
+        for _, item in ipairs(state.quick_picks) do table.insert(combined, item) end
+    end
+    if type(state.home_mixes) == "table" then
+        for _, item in ipairs(state.home_mixes) do table.insert(combined, item) end
+    end
+    if #combined > 0 then
+        api.ensure_thumbnails(combined, publish, "home")
+    end
+end
+
 local function extract_cookies(browser)
     if extraction_active then return end
     if type(browser) ~= "string" or browser == "" then return end
@@ -250,10 +264,7 @@ local function extract_cookies(browser)
                         state.home_mixes = mixes
                     end
                     publish()
-                    if api.ensure_thumbnails then
-                        if #state.quick_picks > 0 then api.ensure_thumbnails(state.quick_picks, publish) end
-                        if #state.home_mixes > 0 then api.ensure_thumbnails(state.home_mixes, publish) end
-                    end
+                    fetch_home_thumbs()
                 end)
             end
         else
@@ -330,10 +341,7 @@ local function load_cached_cookies()
                             state.home_mixes = mixes
                         end
                         publish()
-                        if api.ensure_thumbnails then
-                            if #state.quick_picks > 0 then api.ensure_thumbnails(state.quick_picks, publish) end
-                            if #state.home_mixes > 0 then api.ensure_thumbnails(state.home_mixes, publish) end
-                        end
+                        fetch_home_thumbs()
                     end)
                 end
             end
@@ -484,6 +492,9 @@ local function play_index(index, queue)
     state.player.position = 0
     state.player.status = "loading"
     publish()
+    if api and api.ensure_thumbnails then
+        api.ensure_thumbnails(state.player.queue, publish, "queue")
+    end
     log("play_index: " .. index .. "/" .. #queue .. " id=" .. tostring(item.id) .. " title='" .. tostring(item.title) .. "'")
 
     if api and api.prefetch_queue then
@@ -788,7 +799,7 @@ noctalia.state.watch(REQ, function(req)
             api.search(state.search.query, 25, function(results)
                 state.search.pending = false
                 state.search.results = results or {}
-                api.ensure_thumbnails(state.search.results, publish)
+                api.ensure_thumbnails(state.search.results, publish, "search")
                 publish()
             end)
         end
@@ -841,6 +852,9 @@ noctalia.state.watch(REQ, function(req)
                         api.save_playlist_cache(pid, state.playlist.tracks)
                     end
                     publish()
+                    if api and api.ensure_thumbnails then
+                        api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                    end
                 end)
             end
         end
@@ -881,10 +895,7 @@ noctalia.state.watch(REQ, function(req)
                     state.home_mixes = mixes
                 end
                 publish()
-                if api.ensure_thumbnails then
-                    if #state.quick_picks > 0 then api.ensure_thumbnails(state.quick_picks, publish) end
-                    if #state.home_mixes > 0 then api.ensure_thumbnails(state.home_mixes, publish) end
-                end
+                fetch_home_thumbs()
             end)
         end
     elseif req.action == "cycle_repeat" then
@@ -970,6 +981,9 @@ noctalia.state.watch(REQ, function(req)
                         end
                     end
                     publish()
+                    if api and api.ensure_thumbnails then
+                        api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                    end
                 end)
             end
         end
@@ -1010,6 +1024,9 @@ noctalia.state.watch(REQ, function(req)
                         api.save_playlist_cache(pid, state.playlist.tracks)
                     end
                     publish()
+                    if api and api.ensure_thumbnails then
+                        api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                    end
                 end)
             end
         end
@@ -1090,7 +1107,7 @@ function update()
             if type(playlists) == "table" then
                 log("ytmusic: loaded " .. #playlists .. " library playlists")
                 noctalia.runAsync("true", function()
-                    api.ensure_thumbnails(state.library, publish)
+                    api.ensure_thumbnails(state.library, publish, "library")
                 end)
             else
                 log("ytmusic: library decode failed")
