@@ -57,6 +57,7 @@ local content_page = "home"
 local search_query = ""
 local playlist_view_page = 0
 local playlist_pending_advance = false
+local queue_view_page = 0
 
 local function request(action, payload)
     req_nonce = math.max(req_nonce + 1, os.time() * 1000)
@@ -423,7 +424,7 @@ local function build_sidebar()
         end
     end
 
-    table.insert(sidebar_items, ui.scroll({ key = "library-scroll", flexGrow = 1, gap = 1 }, library_list))
+    table.insert(sidebar_items, ui.scroll({ key = "library-scroll", flexGrow = 1, gap = 0 }, library_list))
 
     return ui.column({ key = "sidebar", width = 256, gap = 2, paddingH = 12, paddingV = 12, borderWidth = 1, border = "primary/0.4", fill = "primary/0.04" }, sidebar_items)
 end
@@ -626,6 +627,20 @@ local function build_player_bar()
     })
 end
 
+function onTrackHover(hover_state, key)
+    if hover_state == "true" then
+        if hovered_track_key ~= key then
+            hovered_track_key = key
+            render_panel()
+        end
+    else
+        if hovered_track_key == key then
+            hovered_track_key = nil
+            render_panel()
+        end
+    end
+end
+
 local function media_row(item, idx, custom_click, is_active)
     local handler = custom_click or function() play_item(item) end
     local row_key = "track-" .. idx
@@ -661,7 +676,7 @@ width = 54,
 
     return ui.row({
         key = row_key,
-        gap = 12,
+        gap = 14,
         align = "center",
         padding = 8,
         borderWidth = 0,
@@ -672,18 +687,7 @@ width = 54,
             handler()
             render_panel()
         end,
-        onHover = function(hover_state)
-            if hover_state == "true" then
-                if hovered_track_key ~= row_key then
-                    hovered_track_key = row_key
-                    request("prefetch", { item = item })
-                end
-            else
-                if hovered_track_key == row_key then
-                    hovered_track_key = nil
-                end
-            end
-        end
+        onHover = "onTrackHover"
     }, {
         track_thumb,
         ui.column({ gap = 2, flexGrow = 1 }, {
@@ -1048,7 +1052,7 @@ local function build_playlist_view()
             local t = pl.tracks[abs_idx]
             if t then
                 table.insert(tracks, media_row(t, abs_idx, function()
-                    request("play_with_queue", { item = t, index = abs_idx, queue = pl.tracks })
+                    request("play_with_queue", { item = t, index = abs_idx, queue = pl.tracks, source_playlist = pl.id })
                 end, state.player.id == t.id))
             end
         end
@@ -1111,9 +1115,7 @@ local function build_playlist_view()
         }, page_controls))
     end
 
-    for _, item in ipairs(tracks) do
-        table.insert(view, item)
-    end
+    table.insert(view, ui.column({ key = "pl-track-list", gap = 0, borderWidth = 0 }, tracks))
 
     return view
 end
@@ -1156,9 +1158,7 @@ local function build_discover()
         end
     end
 
-    for _, item in ipairs(rows) do
-        table.insert(view, item)
-    end
+    table.insert(view, ui.column({ key = "discover-track-list", gap = 0, borderWidth = 0 }, rows))
 
     return view
 end
@@ -1176,16 +1176,72 @@ local function build_queue()
             color = "on_surface_variant"
         }))
     else
+        local PAGE_SIZE = 100
+        local total = #player.queue
+        local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))
+        if queue_view_page >= total_pages then
+            queue_view_page = math.max(0, total_pages - 1)
+        end
+        local page_start = queue_view_page * PAGE_SIZE + 1
+        local page_end = math.min(page_start + PAGE_SIZE - 1, total)
+
         local rows = {}
-        for idx, item in ipairs(player.queue) do
-            local is_current = (idx == player.index)
-            table.insert(rows, media_row(item, idx, function()
-                request("play_queue_index", { index = idx })
-            end, is_current))
+        for idx = page_start, page_end do
+            local item = player.queue[idx]
+            if item then
+                local is_current = (idx == player.index)
+                table.insert(rows, media_row(item, idx, function()
+                    request("play_queue_index", { index = idx })
+                end, is_current))
+            end
         end
-        for _, item in ipairs(rows) do
-            table.insert(view, item)
+
+        local has_prev = (queue_view_page > 0)
+        local has_next = (queue_view_page < total_pages - 1)
+
+        local page_controls = {}
+        if has_prev then
+            table.insert(page_controls, ui.button({
+                key = "q-prev-page",
+                text = "← Previous",
+                variant = "outline",
+                controlSize = "sm",
+                onClick = function()
+                    queue_view_page = queue_view_page - 1
+                    render_panel()
+                end
+            }))
         end
+
+        table.insert(page_controls, ui.label({
+            text = page_start .. "–" .. page_end .. " of " .. total,
+            fontSize = theme.fontBody,
+            fontWeight = "medium",
+            color = "on_surface_variant"
+        }))
+
+        if has_next then
+            table.insert(page_controls, ui.button({
+                key = "q-next-page",
+                text = "Next →",
+                variant = "outline",
+                controlSize = "sm",
+                onClick = function()
+                    queue_view_page = queue_view_page + 1
+                    render_panel()
+                end
+            }))
+        end
+
+        table.insert(view, ui.column({ key = "queue-track-list", gap = 0, borderWidth = 0 }, rows))
+        table.insert(view, ui.row({
+            key = "q-pagination",
+            align = "center",
+            justify = "center",
+            gap = 12,
+            padding = 10,
+            borderWidth = 0
+        }, page_controls))
     end
 
     return view
@@ -1406,7 +1462,11 @@ local function apply_state(s)
     state.extracting = (s.extracting == true)
     state.last_error = s.last_error or state.last_error
     if type(s.player) == "table" then
+        local old_index = state.player.index
         for k, v in pairs(s.player) do state.player[k] = v end
+        if state.player.index and state.player.index ~= old_index then
+            queue_view_page = math.max(0, math.floor((state.player.index - 1) / 100))
+        end
     end
     if type(s.search) == "table" then
         for k, v in pairs(s.search) do state.search[k] = v end

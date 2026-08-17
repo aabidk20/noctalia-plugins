@@ -208,7 +208,9 @@ local function fetch_home_thumbs()
         for _, item in ipairs(state.home_mixes) do table.insert(combined, item) end
     end
     if #combined > 0 then
-        api.ensure_thumbnails(combined, publish, "home")
+        noctalia.runAsync("true", function()
+            api.ensure_thumbnails(combined, publish, "home")
+        end)
     end
 end
 
@@ -470,7 +472,9 @@ local function player_set(item, stream_url)
 
     mpv_play(stream_url)
     if api and api.save_session then
-        api.save_session(state.player)
+        noctalia.runAsync("true", function()
+            api.save_session(state.player)
+        end)
     end
     publish()
 end
@@ -493,7 +497,9 @@ local function play_index(index, queue)
     state.player.status = "loading"
     publish()
     if api and api.ensure_thumbnails then
-        api.ensure_thumbnails(state.player.queue, publish, "queue")
+        noctalia.runAsync("true", function()
+            api.ensure_thumbnails(state.player.queue, publish, "queue")
+        end)
     end
     log("play_index: " .. index .. "/" .. #queue .. " id=" .. tostring(item.id) .. " title='" .. tostring(item.title) .. "'")
 
@@ -799,17 +805,21 @@ noctalia.state.watch(REQ, function(req)
             api.search(state.search.query, 25, function(results)
                 state.search.pending = false
                 state.search.results = results or {}
-                api.ensure_thumbnails(state.search.results, publish, "search")
                 publish()
+                noctalia.runAsync("true", function()
+                    api.ensure_thumbnails(state.search.results, publish, "search")
+                end)
             end)
         end
     elseif req.action == "play" then
         log("play: id=" .. tostring(req.item and req.item.id) .. " title='" .. tostring(req.item and req.item.title) .. "'")
+        log("play: id=" .. tostring(req.item and req.item.id) .. " title='" .. tostring(req.item and req.item.title) "'")
         play(req.item or {})
     elseif req.action == "play_queue_index" then
         play_index(req.index or 1)
     elseif req.action == "play_with_queue" then
         if req.queue and #req.queue > 0 then
+            state.player.source_playlist = req.source_playlist
             play_index(req.index or 1, req.queue)
         elseif req.item then
             play(req.item)
@@ -849,11 +859,15 @@ noctalia.state.watch(REQ, function(req)
                     state.playlist.next_token = res.next_token
                     state.playlist.tracks = res.tracks or {}
                     if api.save_playlist_cache then
-                        api.save_playlist_cache(pid, state.playlist.tracks)
+                        noctalia.runAsync("true", function()
+                            api.save_playlist_cache(pid, state.playlist.tracks)
+                        end)
                     end
                     publish()
                     if api and api.ensure_thumbnails then
-                        api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                        noctalia.runAsync("true", function()
+                            api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                        end)
                     end
                 end)
             end
@@ -1006,10 +1020,14 @@ noctalia.state.watch(REQ, function(req)
                         end
 
                         local added_count = 0
+                        local queue_sync = (state.player.source_playlist == pid)
                         if res.tracks and #res.tracks > 0 then
                             for _, tr in ipairs(res.tracks) do
                                 if tr.id and not existing[tr.id] then
                                     table.insert(state.playlist.tracks, tr)
+                                    if queue_sync then
+                                        table.insert(state.player.queue, tr)
+                                    end
                                     existing[tr.id] = true
                                     added_count = added_count + 1
                                 end
