@@ -19,6 +19,13 @@ shell panel. Inspired by [Omarchy-Spotify](https://github.com/stappmus/Omarchy-S
 - **Auth** — cookie extraction from Chrome, Chromium, Firefox, Edge, Brave,
   Opera, Vivaldi, Whale, or Zen
 
+## Privacy
+
+This plugin reads browser cookies locally on your machine to authenticate with
+YouTube Music, and stores them only on disk in your user's cache directory.
+Nothing is shared: no analytics, no telemetry, no external servers — cookies,
+tokens, and stream URLs never leave your machine.
+
 ## Shortcuts
 
 - `Mod+M` — toggle the full panel (e.g. bound in your compositor's
