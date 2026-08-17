@@ -58,7 +58,33 @@ local function audio_spec_tooltip()
         :format(title, artist, codec_str, bitrate_str, rate_str, tonumber(player.volume) or 70)
 end
 
+local function is_logged_in()
+    return state.status == "ready" or (state.cookie_count and state.cookie_count > 0)
+end
+
 local function render_mini()
+    if not is_logged_in() then
+        panel.render(ui.column({
+            key = "mini-login",
+            align = "center",
+            justify = "center",
+            gap = 16,
+            padding = 24,
+            flexGrow = 1
+        }, {
+            ui.glyph({ name = "user-x", size = 48, color = "on_surface_variant/0.5" }),
+            ui.label({ text = "Not Logged In", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface" }),
+            ui.label({ text = "Sign in to YouTube Music to use the mini player.", fontSize = theme.fontBody, color = "on_surface_variant", textAlign = "center" }),
+            ui.button({
+                text = "Open Main Window",
+                variant = "primary",
+                controlSize = "md",
+                onClick = function() noctalia.togglePanel("aabidk20/noctalia-ytmusic:panel") end
+            })
+        }))
+        return
+    end
+
     local player = state.player or {}
     local is_playing = (player.status == "playing")
     local duration = tonumber(player.duration) or 0
@@ -244,6 +270,12 @@ end
 
 local function apply_state(s)
     if type(s) ~= "table" then return end
+    if s.status ~= nil then
+        state.status = s.status
+    end
+    if s.cookie_count ~= nil then
+        state.cookie_count = s.cookie_count
+    end
     if type(s.player) == "table" then
         for k, v in pairs(s.player) do state.player[k] = v end
     end

@@ -202,39 +202,64 @@ local function build_browser_cells()
     for _, b in ipairs(BROWSERS) do
         local is_avail = state.available[b.id]
         local is_current = (state.extracting and state.browser == b.id)
+        local key = "browser-btn-" .. b.id
+        local is_hovered = (hovered_card_key == key)
+        
         if is_current then
-            table.insert(cells, ui.button({
-                key = "browser-btn-" .. b.id,
-                glyph = b.icon,
-                text = "Extracting...",
-                variant = "primary",
+            table.insert(cells, ui.row({
+                key = key,
+                align = "center",
+                justify = "center",
+                gap = 12,
+                paddingV = 16,
+                paddingH = 20,
+                borderWidth = 1,
+                border = "primary",
+                fill = "primary/0.1",
                 flexGrow = 1,
-                controlSize = "md",
                 onClick = function() request_extract(b.id) end
+            }, {
+                ui.glyph({ name = "loader", size = 24, color = "primary" })
             }))
         elseif is_avail then
-            table.insert(cells, ui.button({
-                key = "browser-btn-" .. b.id,
-                glyph = b.icon,
-                text = b.label,
-                variant = "outline",
+            table.insert(cells, ui.row({
+                key = key,
+                align = "center",
+                justify = "center",
+                gap = 12,
+                paddingV = 16,
+                paddingH = 20,
+                borderWidth = 1,
+                border = is_hovered and "primary" or "outline",
+                fill = is_hovered and "surface_variant/0.8" or "surface_variant/0.4",
                 flexGrow = 1,
-                controlSize = "md",
-                onClick = function() request_extract(b.id) end
+                onClick = function() request_extract(b.id) end,
+                onHover = function(h)
+                    if h == "true" then
+                        if hovered_card_key ~= key then hovered_card_key = key; render_panel() end
+                    else
+                        if hovered_card_key == key then hovered_card_key = nil; render_panel() end
+                    end
+                end
+            }, {
+                ui.glyph({ name = b.icon, size = 24, color = is_hovered and "primary" or "on_surface" }),
+                ui.label({ text = b.label, fontSize = theme.fontTitle, fontWeight = "bold", color = is_hovered and "primary" or "on_surface" })
             }))
         else
-            table.insert(cells, ui.column({
+            table.insert(cells, ui.row({
                 key = "browser-off-" .. b.id,
                 align = "center",
                 justify = "center",
-                gap = 2,
-                padding = 8,
-                borderWidth = 0,
-                fill = "surface_variant/0.25",
+                gap = 12,
+                paddingV = 16,
+                paddingH = 20,
+                borderWidth = 1,
+                border = "outline/0.3",
+                fill = "surface_variant/0.1",
                 flexGrow = 1
             }, {
-                ui.glyph({ name = b.icon, size = 16, color = "on_surface_variant/0.5" }),
-                ui.label({ text = b.label, fontSize = theme.fontCaption, color = "on_surface_variant/0.6" })
+                ui.glyph({ name = b.icon, size = 24, color = "on_surface_variant/0.4" }),
+                ui.label({ text = b.label, fontSize = theme.fontTitle, fontWeight = "bold", color = "on_surface_variant/0.4" })
             }))
         end
     end
@@ -690,7 +715,7 @@ end
 
 local function build_signin_prompt()
     local browser_rows = {}
-    for _, row in ipairs(chunk_rows(build_browser_cells(), 3, "browser-grid", 8)) do
+    for _, row in ipairs(chunk_rows(build_browser_cells(), 3, "browser-grid", 12)) do
         table.insert(browser_rows, row)
     end
 
@@ -1169,7 +1194,7 @@ local function build_cookies_page()
 
     local cells = build_browser_cells()
 
-    for _, row in ipairs(chunk_rows(cells, 3, "browser-grid", 8)) do
+    for _, row in ipairs(chunk_rows(cells, 3, "browser-grid", 12)) do
         table.insert(page, row)
     end
 

@@ -297,7 +297,11 @@ function API.attach_cached_thumbs(items)
     for i = 1, count do
         local item = items[i]
         if type(item) == "table" and type(item.id) == "string" and item.id ~= "" then
-            item.thumb_path = THUMB_DIR .. "/" .. item.id .. ".jpg"
+            local safe_id = item.id:gsub("[^%w%-_]", "_")
+            local path = THUMB_DIR .. "/" .. safe_id .. ".jpg"
+            if noctalia.fileExists(path) then
+                item.thumb_path = path
+            end
         end
     end
 end
@@ -499,24 +503,52 @@ function API.search(query, count, cb)
         context = CONTEXT.context,
         query = query,
         params = "EgWKAQIIAWoQChADEAQQCRAFEAoQBRAE",
-    }, function(data, err)
-        if not data then
-            cb(nil, err)
+    }, function(raw_body, err)
+        if not raw_body or raw_body == "" then
+            cb(nil, err or "empty response")
             return
         end
-        local out = {}
-        local content = page_content(data)
-        local items = content and collect_from_content(content, "musicResponsiveListItemRenderer", {}) or {}
-        for _, node in ipairs(items) do
-            local it = extract_track(node)
-            if it then
-                table.insert(out, it)
-                if #out >= count then break end
+        local raw_file = "/tmp/noctalia-ytmusic-search-raw.json"
+        local clean_file = "/tmp/noctalia-ytmusic-search-clean.json"
+        noctalia.writeFile(raw_file, raw_body)
+
+        local script = ([=[
+jq '{
+  tracks: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
+    id: (.playlistItemData.videoId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // ""),
+    title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+    artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+    album: (.flexColumns[2].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+    duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
+    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
+  } | select(.id != "" and .title != "")] | unique_by(.id)
+}' "%s" > "%s" 2>/dev/null
+echo "STATUS=OK"
+]=]):format(raw_file, clean_file)
+
+        noctalia.runAsync(script, function(res)
+            local out = {}
+            if noctalia.fileExists(clean_file) then
+                local raw_clean = noctalia.readFile(clean_file)
+                local data = noctalia.json.decode(raw_clean or "")
+                local raw_tracks = (type(data) == "table" and type(data.tracks) == "table") and data.tracks or {}
+                for _, tr in ipairs(raw_tracks) do
+                    table.insert(out, {
+                        id = tr.id,
+                        title = tr.title,
+                        artist = clean_artist(tr.artist),
+                        album = tr.album,
+                        duration = fmt_seconds(tr.duration_text),
+                        duration_text = tr.duration_text,
+                        thumbnail_url = tr.thumbnail_url
+                    })
+                    if #out >= count then break end
+                end
             end
-        end
-        log(string.format("search got %d results, first='%s'", #out, tostring(out[1] and out[1].title)))
-        cb(out)
-    end)
+            log(string.format("search got %d results, first='%s'", #out, tostring(out[1] and out[1].title)))
+            cb(out)
+        end)
+    end, true)
 end
 
 local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"

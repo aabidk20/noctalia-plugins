@@ -241,6 +241,21 @@ local function extract_cookies(browser)
             if api and api.library then
                 api.library()
             end
+            if api and api.fetch_quick_picks then
+                api.fetch_quick_picks(function(qp, mixes)
+                    if type(qp) == "table" and #qp > 0 then
+                        state.quick_picks = qp
+                    end
+                    if type(mixes) == "table" and #mixes > 0 then
+                        state.home_mixes = mixes
+                    end
+                    publish()
+                    if api.ensure_thumbnails then
+                        if #state.quick_picks > 0 then api.ensure_thumbnails(state.quick_picks, publish) end
+                        if #state.home_mixes > 0 then api.ensure_thumbnails(state.home_mixes, publish) end
+                    end
+                end)
+            end
         else
             state.status = "error"
             state.cookies_path = ""
