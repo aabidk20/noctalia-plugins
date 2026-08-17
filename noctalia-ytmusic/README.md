@@ -19,6 +19,16 @@ shell panel. Inspired by [Omarchy-Spotify](https://github.com/stappmus/Omarchy-S
 - **Auth** — cookie extraction from Chrome, Chromium, Firefox, Edge, Brave,
   Opera, Vivaldi, Whale, or Zen
 
+## Shortcuts
+
+- `Mod+M` — toggle the full panel (e.g. bound in your compositor's
+  keybinds as `noctalia msg panel-toggle aabidk20/noctalia-ytmusic:panel`).
+  Example for [niri](https://github.com/YaLTeR/niri):
+
+  ```kdl
+  Mod+M hotkey-overlay-title="YT Music: Toggle" { spawn "noctalia" "msg" "panel-toggle" "aabidk20/noctalia-ytmusic:panel"; }
+  ```
+
 ## Dependencies
 
 External tools the plugin shells out to:
