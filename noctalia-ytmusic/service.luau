@@ -607,6 +607,30 @@ local function play(item)
     play_index(#state.player.queue)
 end
 
+local function play_next(item)
+    if not item or not item.id or item.id == "" then return end
+    local insert_at
+    if state.player.index > 0 and #state.player.queue > 0 then
+        insert_at = math.min(state.player.index + 1, #state.player.queue + 1)
+    else
+        insert_at = #state.player.queue + 1
+    end
+    table.insert(state.player.queue, insert_at, {
+        id = item.id,
+        title = item.title,
+        artist = item.artist or "",
+        duration = tonumber(item.duration) or 0,
+        thumbnail_url = item.thumbnail_url,
+        thumb_path = item.thumb_path
+    })
+    log("play_next: inserted '" .. tostring(item.title) .. "' at queue position " .. insert_at)
+    if state.player.status == "stopped" then
+        play_index(insert_at)
+    else
+        publish()
+    end
+end
+
 local function play_query(query)
     if type(query) ~= "string" or query == "" then return end
     log("play_query: '" .. query .. "'")
@@ -885,8 +909,9 @@ noctalia.state.watch(REQ, function(req)
         end
     elseif req.action == "play" then
         log("play: id=" .. tostring(req.item and req.item.id) .. " title='" .. tostring(req.item and req.item.title) .. "'")
-        log("play: id=" .. tostring(req.item and req.item.id) .. " title='" .. tostring(req.item and req.item.title) "'")
         play(req.item or {})
+    elseif req.action == "play_next" then
+        play_next(req.item or {})
     elseif req.action == "play_queue_index" then
         play_index(req.index or 1)
     elseif req.action == "play_with_queue" then

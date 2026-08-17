@@ -719,7 +719,20 @@ width = 54,
                     end
                 })
             end
-        end)()
+        end)(),
+        ui.button({
+            key = row_key .. "-playnext",
+            glyph = "playlist-add",
+            variant = "ghost",
+            controlSize = "sm",
+            tooltip = "Play next",
+            onClick = function()
+                hovered_track_key = nil
+                if item and item.id then
+                    request("play_next", { item = item })
+                end
+            end
+        })
     })
 end
 
@@ -1471,6 +1484,9 @@ local function apply_state(s)
     if type(s.player) == "table" then
         local old_index = state.player.index
         for k, v in pairs(s.player) do state.player[k] = v end
+        if loading_track_id and (state.player.status ~= "loading" or (state.player.id ~= "" and state.player.id ~= loading_track_id)) then
+            loading_track_id = nil
+        end
         if state.player.index and state.player.index ~= old_index then
             queue_view_page = math.max(0, math.floor((state.player.index - 1) / 100))
         end
