@@ -928,11 +928,14 @@ function API.cache_audio(video_id, callback)
         "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' --cookies '%s' 'https://www.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
         AUDIO_DIR, path, COOKIE_PATH, video_id
     )
-    noctalia.runAsync(cmd, function(res)
+    local launched = noctalia.runAsync(cmd, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local ok = noctalia.fileExists(path) or out:find("STATUS=OK") ~= nil
         if callback then callback(ok) end
     end, 120000)
+    if not launched and callback then
+        callback(false)
+    end
 end
 
 local function sanitize_str(str)

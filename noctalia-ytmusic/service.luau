@@ -129,6 +129,43 @@ end
 local logger = require("./log.luau")
 local function log(msg) logger.log("ytm", msg) end
 
+-- Audio download queue: bounded concurrency so we never exceed the host's
+-- per-host async command cap (8) or hammer yt-dlp/YouTube in parallel.
+-- dl_active stays well under the cap, leaving slots for polls/thumbnails/streams.
+local DL_CONCURRENCY = 2
+local dl_queue = {}
+local dl_inflight = {}
+local dl_active = 0
+
+local function pump()
+    while #dl_queue > 0 and dl_active < DL_CONCURRENCY do
+        local id = table.remove(dl_queue, 1)
+        if id and id ~= "" and not dl_inflight[id] and not state.cached_audio_ids[id] then
+            dl_inflight[id] = true
+            dl_active = dl_active + 1
+            api.cache_audio(id, function(ok)
+                dl_active = dl_active - 1
+                dl_inflight[id] = nil
+                if ok then
+                    state.cached_audio_ids[id] = true
+                    publish()
+                else
+                    log("download: failed for id=" .. tostring(id))
+                end
+                pump()
+            end)
+        end
+    end
+end
+
+local function enqueue_download(id)
+    if not id or id == "" or dl_inflight[id] or state.cached_audio_ids[id] then
+        return
+    end
+    table.insert(dl_queue, id)
+    pump()
+end
+
 local function browser_label(id)
     for _, b in ipairs(BROWSERS) do
         if b.id == id then return b.label end
@@ -926,31 +963,20 @@ noctalia.state.watch(REQ, function(req)
     elseif req.action == "download_track" then
         local vid = req.id or req.video_id
         if vid and vid ~= "" then
-            log("download_track: starting for id=" .. tostring(vid))
-            if api and api.cache_audio then
-                api.cache_audio(vid, function(ok)
-                    if ok then
-                        state.cached_audio_ids[vid] = true
-                        log("download_track: complete for id=" .. tostring(vid))
-                        publish()
-                    end
-                end)
-            end
+            log("download_track: queued for id=" .. tostring(vid))
+            enqueue_download(vid)
         end
     elseif req.action == "download_playlist" then
-        log("download_playlist: starting batch download for " .. #state.playlist.tracks .. " tracks")
+        local queued = 0
         if api and api.cache_audio and type(state.playlist.tracks) == "table" then
             for _, tr in ipairs(state.playlist.tracks) do
-                if tr.id and tr.id ~= "" and not state.cached_audio_ids[tr.id] then
-                    api.cache_audio(tr.id, function(ok)
-                        if ok then
-                            state.cached_audio_ids[tr.id] = true
-                            publish()
-                        end
-                    end)
+                if tr.id and tr.id ~= "" then
+                    enqueue_download(tr.id)
+                    queued = queued + 1
                 end
             end
         end
+        log("download_playlist: queued " .. queued .. " tracks")
     elseif req.action == "open_playlist" then
         local pid = req.id or req.playlist_id
         if pid and pid ~= "" then
