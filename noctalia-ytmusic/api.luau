@@ -823,6 +823,7 @@ jq '{
     duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
     thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
   } | select(.id != "")],
+  count_text: ([.. | .musicResponsiveHeaderRenderer? | select(. != null) | (.subtitle?.runs // []) + (.secondSubtitle?.runs // []) | .[]?.text | select(. != null and test("song|track"))] | .[0] // null),
   next_token: ([.. | (.continuationCommand?.token // .nextContinuationData?.continuation) | select(. != null and . != "")] | .[0] // null)
 }' "/tmp/noctalia-ytmusic-raw.json" > "]=] .. tmp_out .. [=["
 ]=]
@@ -847,11 +848,13 @@ jq '{
                 tr.artist = clean_artist(tr.artist)
             end
             local next_tok = type(data.next_token) == "string" and data.next_token ~= "" and data.next_token or nil
-            log("jq playlist page got " .. #tracks .. " tracks, next_token=" .. tostring(next_tok ~= nil))
+            local count_text = type(data.count_text) == "string" and data.count_text or ""
+            local count_num = tonumber(count_text:match("(%d+)"))
+            log("jq playlist page got " .. #tracks .. " tracks, next_token=" .. tostring(next_tok ~= nil) .. ", count_num=" .. tostring(count_num))
             if #tracks > 0 then
                 API.attach_cached_thumbs(tracks)
             end
-            cb({ tracks = tracks, next_token = next_tok })
+            cb({ tracks = tracks, next_token = next_tok, total_count = count_num })
         else
             cb({ tracks = {}, next_token = nil })
         end

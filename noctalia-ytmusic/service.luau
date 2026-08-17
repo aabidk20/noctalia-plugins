@@ -973,6 +973,9 @@ noctalia.state.watch(REQ, function(req)
                 api.playlist_page(pid, nil, function(res)
                     state.playlist.fetching = false
                     state.playlist.next_token = res.next_token
+                    if res.total_count and res.total_count > 0 then
+                        state.playlist.count = res.total_count
+                    end
                     if res.tracks and #res.tracks > 0 then
                         if pid == "VLLM" then sync_liked_tracks(res.tracks) end
                         local existing = {}

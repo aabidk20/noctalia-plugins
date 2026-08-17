@@ -165,8 +165,9 @@ local function open_playlist(pl)
     playlist_view_page = 0
     state.playlist.id = tostring(pl.id or "")
     state.playlist.title = tostring(pl.title or "Playlist")
+    state.playlist.count = tonumber(pl.count) or 0
     state.playlist.tracks = {}
-    request("open_playlist", { id = pl.id, title = pl.title })
+    request("open_playlist", { id = pl.id, title = pl.title, count = pl.count })
     render_panel()
 end
 
@@ -380,7 +381,7 @@ local function build_sidebar()
         ui.glyph({ name = "brand-youtube-filled", size = 30, color = "primary" }),
         ui.column({ gap = 1, flexGrow = 1 }, {
             ui.label({ text = "Music", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface" }),
-            ui.label({ text = "for YouTube Music", fontSize = theme.fontBody, color = "on_surface_variant" })
+            ui.label({ text = "for YouTube Music", fontSize = theme.fontTitle, color = "on_surface_variant" })
         })
     }))
 
@@ -998,14 +999,14 @@ local function build_playlist_view()
                 ui.label({
                     key = "pl-downloaded-label",
                     text = downloaded_count .. " downloaded",
-                    fontSize = theme.fontBody,
+                    fontSize = theme.fontTitle,
                     fontWeight = "medium",
                     color = "on_surface"
                 }),
                 ui.label({
                     key = "pl-total-label",
-                    text = #pl.tracks .. " total",
-                    fontSize = theme.fontCaption,
+                    text = (state.playlist.count and state.playlist.count > #pl.tracks) and (#pl.tracks .. " of " .. state.playlist.count .. " total") or (#pl.tracks .. " total"),
+                    fontSize = theme.fontTitle,
                     color = "on_surface_variant"
                 })
             }),
@@ -1078,7 +1079,7 @@ local function build_playlist_view()
         end
 
         table.insert(page_controls, ui.label({
-            text = page_start .. "–" .. page_end .. " of " .. total,
+            text = page_start .. "–" .. page_end .. " of " .. ((state.playlist.count and state.playlist.count > total) and state.playlist.count or total),
             fontSize = theme.fontBody,
             fontWeight = "medium",
             color = "on_surface_variant"
