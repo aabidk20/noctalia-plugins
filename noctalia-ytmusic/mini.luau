@@ -220,12 +220,16 @@ local function render_mini()
     local rep_glyph = (rep_mode == "one") and "repeat-once" or "repeat"
     local rep_tooltip = (rep_mode == "one") and "Repeat Track (1)" or ((rep_mode == "all") and "Repeat Queue" or "Repeat Off")
 
+    local is_loading = (player.status == "loading")
+    local is_playing = (player.status == "playing")
+    local play_glyph = is_loading and "loader" or (is_playing and "player-pause" or "player-play")
+
     local controls_row = ui.row({ key = "mini-controls", align = "center", justify = "center", gap = 12, width = "fill" }, {
         icon_btn("arrows-shuffle", function() request("toggle_shuffle") end, shuffle_active),
         icon_btn("player-skip-back", function() request("prev") end),
         ui.button({
             key = "mini-play-btn",
-            glyph = is_playing and "player-pause" or "player-play",
+            glyph = play_glyph,
             variant = "primary",
             controlSize = "lg",
             onClick = function() request("toggle") end

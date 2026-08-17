@@ -512,7 +512,9 @@ local function build_player_bar()
     local is_drag_active = seek_drag_state and seek_drag_state.track_id == state.player.id and seek_drag_state.dragging
     local slider_val = tonumber((is_drag_active and seek_drag_state.position) or position) or 0
 
+    local is_loading = (state.player.status == "loading")
     local is_playing = (state.player.status == "playing")
+    local play_glyph = is_loading and "loader" or (is_playing and "player-pause" or "player-play")
     local shuffle_active = (state.player.shuffle == true)
     local rep_mode = state.player.repeat_mode or "off"
     local rep_active = (rep_mode ~= "off")
@@ -523,7 +525,7 @@ local function build_player_bar()
         icon_btn("arrows-shuffle", function() request("toggle_shuffle") end, shuffle_active),
         icon_btn("player-skip-back", function() request("prev") end),
         ui.button({
-            glyph = is_playing and "player-pause" or "player-play",
+            glyph = play_glyph,
             variant = "primary",
             controlSize = "md",
             onClick = function() request("toggle") end

@@ -474,6 +474,14 @@ local function play_index(index, queue)
     state.player.queue = queue
     state.player.index = index
     local item = queue[index]
+    mpv_send(noctalia.json.encode({ command = { "set_property", "pause", true } }))
+    state.player.id = item.id or ""
+    state.player.title = item.title or "Loading track..."
+    state.player.artist = item.artist or ""
+    state.player.thumbnail_url = item.thumbnail_url
+    state.player.thumb_path = item.thumb_path or (api and api.get_thumbnail_path and api.get_thumbnail_path(item.id, item.thumbnail_url, nil) or nil)
+    state.player.duration = tonumber(item.duration) or 0
+    state.player.position = 0
     state.player.status = "loading"
     publish()
     log("play_index: " .. index .. "/" .. #queue .. " id=" .. tostring(item.id) .. " title='" .. tostring(item.title) .. "'")
@@ -705,13 +713,15 @@ local function poll_player()
         local changed = false
         local pos = tonumber(out:match("POS=([^\n]+)") or "") or nil
         local dur = tonumber(out:match("DUR=([^\n]+)") or "") or nil
-        if pos and pos ~= state.player.position then
-            state.player.position = pos
-            changed = true
-        end
-        if dur and dur ~= state.player.duration then
-            state.player.duration = dur
-            changed = true
+        if state.player.status ~= "loading" then
+            if pos and pos ~= state.player.position then
+                state.player.position = pos
+                changed = true
+            end
+            if dur and dur ~= state.player.duration then
+                state.player.duration = dur
+                changed = true
+            end
         end
         if (os.time() - last_action_time) >= 2 then
             local pause = out:match("PAUSE=([^\n]+)")
