@@ -61,6 +61,7 @@ local state = {
     liked_ids = {},
     cached_audio_ids = {},
     downloaded_playlist_ids = {},
+    downloading_playlist_ids = {},
     quick_picks = {},
     home_mixes = {}
 }
@@ -132,25 +133,54 @@ local function log(msg) logger.log("ytm", msg) end
 -- Audio download queue: bounded concurrency so we never exceed the host's
 -- per-host async command cap (8) or hammer yt-dlp/YouTube in parallel.
 -- dl_active stays well under the cap, leaving slots for polls/thumbnails/streams.
+-- Each queued item remembers its source playlist so downloading_playlist_ids
+-- can be tracked accurately and published once per playlist completion.
 local DL_CONCURRENCY = 2
-local dl_queue = {}
-local dl_inflight = {}
+local dl_queue = {}         -- { plid = <playlist id or "">, id = <video id> }
+local dl_inflight = {}      -- video id -> plid
 local dl_active = 0
+local dl_pending = {}       -- plid -> number of queue entries waiting/done once
+
+local function pl_done(plid)
+    local inflight = false
+    for vid, pid in pairs(dl_inflight) do
+        if pid == plid then inflight = true break end
+    end
+    dl_pending[plid] = nil
+    return not inflight
+end
+
+local function unlock_playlist(plid)
+    state.downloading_playlist_ids[plid] = nil
+    audit_downloaded_playlists()
+    publish()
+end
 
 local function pump()
     while #dl_queue > 0 and dl_active < DL_CONCURRENCY do
-        local id = table.remove(dl_queue, 1)
+        local item = table.remove(dl_queue, 1)
+        local plid = item.plid or ""
+        local id = item.id
+        dl_pending[plid] = (dl_pending[plid] or 1) - 1
+        if dl_pending[plid] < 0 then dl_pending[plid] = 0 end
         if id and id ~= "" and not dl_inflight[id] and not state.cached_audio_ids[id] then
-            dl_inflight[id] = true
+            dl_inflight[id] = plid
             dl_active = dl_active + 1
             api.cache_audio(id, function(ok)
                 dl_active = dl_active - 1
                 dl_inflight[id] = nil
                 if ok then
                     state.cached_audio_ids[id] = true
-                    publish()
                 else
                     log("download: failed for id=" .. tostring(id))
+                end
+                if pl_done(plid) then
+                    if plid ~= "" then
+                        unlock_playlist(plid)
+                    elseif dl_active == 0 and #dl_queue == 0 then
+                        audit_downloaded_playlists()
+                        publish()
+                    end
                 end
                 pump()
             end)
@@ -158,11 +188,16 @@ local function pump()
     end
 end
 
-local function enqueue_download(id)
+local function enqueue_download(id, plid)
     if not id or id == "" or dl_inflight[id] or state.cached_audio_ids[id] then
         return
     end
-    table.insert(dl_queue, id)
+    local pid = plid or ""
+    table.insert(dl_queue, { plid = pid, id = id })
+    dl_pending[pid] = (dl_pending[pid] or 0) + 1
+    if pid ~= "" then
+        state.downloading_playlist_ids[pid] = true
+    end
     pump()
 end
 
@@ -964,17 +999,21 @@ noctalia.state.watch(REQ, function(req)
         local vid = req.id or req.video_id
         if vid and vid ~= "" then
             log("download_track: queued for id=" .. tostring(vid))
-            enqueue_download(vid)
+            enqueue_download(vid, "")
         end
     elseif req.action == "download_playlist" then
+        local plid = tostring(state.playlist.id or "")
         local queued = 0
         if api and api.cache_audio and type(state.playlist.tracks) == "table" then
             for _, tr in ipairs(state.playlist.tracks) do
                 if tr.id and tr.id ~= "" then
-                    enqueue_download(tr.id)
+                    enqueue_download(tr.id, plid)
                     queued = queued + 1
                 end
             end
+        end
+        if queued > 0 then
+            publish()
         end
         log("download_playlist: queued " .. queued .. " tracks")
     elseif req.action == "open_playlist" then

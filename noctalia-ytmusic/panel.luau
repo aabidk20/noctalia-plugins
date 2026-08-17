@@ -49,6 +49,7 @@ local state = {
     playlist = { id = "", title = "", tracks = {} },
     quick_picks = {},
     home_mixes = {},
+    downloading_playlist_ids = {},
     cache_stats = {},
     settings = { autoplay = true }
 }
@@ -330,7 +331,7 @@ function onCardHover(hover_state, key)
     end
 end
 
-local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_path, bold_active)
+local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_path, bold_active, text_color)
     local is_hovered = (hovered_sidebar_key == key)
     local fill_color = active and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15")
     local glyph_color = (active or is_hovered) and "primary" or "on_surface_variant"
@@ -357,12 +358,12 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
     }, {
         icon_elem,
         ui.column({ gap = 1, flexGrow = 1 }, {
-ui.label({
+            ui.label({
                 text = label,
                 fontSize = theme.fontTitle,
                 maxLines = 1,
                 fontWeight = (active and bold_active ~= false) and "bold" or "medium",
-                color = active and "primary" or "on_surface",
+                color = text_color or (active and "primary" or "on_surface"),
                 flexGrow = 1
             }),
             subtext and ui.label({
@@ -418,10 +419,11 @@ local function build_sidebar()
             local pl_id = tostring(pl.id or "")
             local key = "pl-" .. idx
             local active = (content_page == "playlist" and pl_id ~= "" and state.playlist.id == pl_id)
+            local is_source = (state.player and state.player.source_playlist ~= nil and tostring(state.player.source_playlist) == pl_id)
             local row_icon = (pl.title and pl.title:lower():find("liked", 1, true)) and "heart" or "playlist"
             table.insert(library_list, sidebar_row(key, row_icon, pl.title, nil, active, function()
                 open_playlist(pl)
-            end, nil, false))
+            end, nil, false, is_source and "primary" or nil))
         end
     end
 
@@ -880,7 +882,7 @@ width = 54,
                     }),
                 ui.column({ gap = 2, flexGrow = 1 }, {
                     ui.label({ text = item_title, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface" }),
-                    ui.label({ text = item_sub, fontSize = theme.fontBody, maxLines = 1, color = "on_surface_variant" })
+                    ui.label({ text = item_sub, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface_variant" })
                 })
             }))
         end
@@ -942,7 +944,7 @@ width = 54,
                     }),
                     ui.label({
                         text = (pl.count and pl.count > 0) and (pl.count .. " tracks") or "Playlist",
-                        fontSize = theme.fontBody,
+                        fontSize = theme.fontTitle,
                         color = "on_surface_variant"
                     })
                 })
@@ -970,8 +972,18 @@ local function build_playlist_view()
     end
     local all_cached = (#pl.tracks > 0 and downloaded_count == #pl.tracks)
 
+    local is_downloading = (state.downloading_playlist_ids and state.downloading_playlist_ids[state.playlist.id] == true)
+
     local download_btn
-    if all_cached then
+    if is_downloading then
+        download_btn = ui.button({
+            key = "btn-download-pl",
+            glyph = "loader",
+            variant = "secondary",
+            controlSize = "md",
+            tooltip = "Downloading playlist tracks..."
+        })
+    elseif all_cached then
         download_btn = ui.button({
             key = "btn-download-pl",
             glyph = "check",
@@ -1251,17 +1263,9 @@ end
 local function build_cookies_page()
     local page = {}
 
-    table.insert(page, ui.row({ key = "cookie-title", align = "center", justify = "space_between" }, {
-        ui.row({ gap = 8, align = "center" }, {
-            ui.glyph({ name = "login", size = 18, color = "primary" }),
-            ui.label({ text = "COOKIES & LOGIN", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" })
-        }),
-        ui.button({
-            text = "Back to Home",
-            variant = "ghost",
-            controlSize = "sm",
-            onClick = function() on_nav("home") end
-        })
+    table.insert(page, ui.row({ key = "cookie-title", align = "center", gap = 8 }, {
+        ui.glyph({ name = "login", size = 18, color = "primary" }),
+        ui.label({ text = "COOKIES & LOGIN", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" })
     }))
 
     local status_color = "on_surface_variant"
@@ -1278,7 +1282,7 @@ local function build_cookies_page()
     if state.status == "ready" then
         table.insert(status_children, ui.label({
             text = "YouTube cookies: " .. state.cookie_count,
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant"
         }))
     elseif state.status == "error" and state.last_error and state.last_error ~= "" then
@@ -1286,7 +1290,7 @@ local function build_cookies_page()
         if #err > 220 then err = err:sub(1, 220) .. "..." end
         table.insert(status_children, ui.label({
             text = err,
-            fontSize = theme.fontCaption,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant"
         }))
     end
@@ -1299,7 +1303,8 @@ local function build_cookies_page()
         fill = "surface_variant/0.5"
     }, status_children))
 
-    table.insert(page, ui.separator({ key = "sep-cookie", color = "outline" }))
+    table.insert(page, ui.row({ key = "spacer-above-sep-cookie", height = 4, borderWidth = 0 }))
+    table.insert(page, ui.separator({ key = "sep-cookie", color = "outline/0.3" }))
 
     table.insert(page, ui.label({ text = "LOG IN & EXTRACT", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
@@ -1309,13 +1314,14 @@ local function build_cookies_page()
         table.insert(page, row)
     end
 
-    table.insert(page, ui.separator({ key = "sep-cookie-2", color = "outline" }))
+    table.insert(page, ui.row({ key = "spacer-above-sep-cookie-2", height = 4, borderWidth = 0 }))
+    table.insert(page, ui.separator({ key = "sep-cookie-2", color = "outline/0.3" }))
 
     table.insert(page, ui.row({ key = "cookie-hint", align = "center", gap = 8, padding = 4 }, {
         ui.glyph({ name = "info-circle", size = 15, color = "on_surface_variant" }),
         ui.label({
             text = "Sign in to YouTube Music in a browser, then click its button to export YouTube cookies. If the browser has no session, the login page opens for you.",
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant",
             flexGrow = 1
         })
@@ -1326,8 +1332,8 @@ end
 
 local function build_settings()
     local items = {}
-    table.insert(items, ui.row({ key = "set-head", padding = 20 }, {
-        ui.label({ text = "Settings", fontSize = theme.fontHeading, fontWeight = "bold" })
+    table.insert(items, ui.row({ key = "set-head", paddingV = 16, borderWidth = 0 }, {
+        ui.label({ text = "Settings", fontSize = theme.fontHero, fontWeight = "bold" })
     }))
 
     local caches = {
@@ -1342,11 +1348,11 @@ local function build_settings()
         local size = state.cache_stats and state.cache_stats[c.id] or "0"
         table.insert(cache_rows, ui.row({ key = "cache-" .. c.id, align = "center", justify = "space_between", paddingV = 12 }, {
             ui.column({ gap = 2 }, {
-                ui.label({ text = c.name, fontWeight = "bold" }),
-                ui.label({ text = c.desc, fontSize = theme.fontCaption, color = "on_surface_variant" })
+                ui.label({ text = c.name, fontSize = theme.fontTitle, fontWeight = "bold" }),
+                ui.label({ text = c.desc, fontSize = theme.fontTitle, color = "on_surface_variant" })
             }),
             ui.row({ gap = 16, align = "center" }, {
-                ui.label({ text = size, fontWeight = "bold", color = "primary" }),
+                ui.label({ text = size, fontSize = theme.fontTitle, fontWeight = "bold", color = "primary" }),
                 ui.button({
                     text = "Clear",
                     variant = "outline",
@@ -1370,11 +1376,11 @@ local function build_settings()
         radius = 12 
     }, {
         ui.label({ text = "Storage & Cache", fontSize = theme.fontTitle, fontWeight = "bold" }),
-        ui.label({ text = "Manage local cache sizes to free up disk space.", color = "on_surface_variant" }),
+        ui.label({ text = "Manage local cache sizes to free up disk space.", fontSize = theme.fontTitle, color = "on_surface_variant" }),
         ui.column({ gap = 0, paddingV = 12 }, cache_rows)
     }))
 
-    table.insert(items, ui.row({ key = "set-spacer-1", height = 16, borderWidth = 0 }))
+    table.insert(items, ui.row({ key = "set-spacer-1", height = 24, borderWidth = 0 }))
 
     for _, item in ipairs(build_cookies_page()) do
         table.insert(items, item)
@@ -1493,6 +1499,9 @@ local function apply_state(s)
     end
     if type(s.downloaded_playlist_ids) == "table" then
         state.downloaded_playlist_ids = s.downloaded_playlist_ids
+    end
+    if type(s.downloading_playlist_ids) == "table" then
+        state.downloading_playlist_ids = s.downloading_playlist_ids
     end
     if type(s.quick_picks) == "table" then
         state.quick_picks = s.quick_picks
