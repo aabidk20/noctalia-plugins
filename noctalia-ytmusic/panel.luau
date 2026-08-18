@@ -81,6 +81,18 @@ local function fmt_pos(seconds)
     return string.format("%d:%02d", m, s)
 end
 
+local function fmt_count(n)
+    n = tonumber(n) or 0
+    if n >= 1000000000 then
+        return string.format("%.1fB", n / 1000000000)
+    elseif n >= 1000000 then
+        return string.format("%.1fM", n / 1000000)
+    elseif n >= 1000 then
+        return string.format("%.1fK", n / 1000)
+    end
+    return tostring(n)
+end
+
 local function icon_btn(glyph, onClick, variant)
     local v = "ghost"
     if type(variant) == "boolean" then
@@ -512,7 +524,7 @@ local function build_player_bar()
 
     local now_playing = ui.row({ key = "pb-now", align = "center", gap = 10, width = 300 }, {
         player_thumb,
-        ui.column({ gap = 2, flexGrow = 1 }, {
+        ui.column({ gap = 4, flexGrow = 1 }, {
             ui.row({ key = "pb-title-row", align = "center", gap = 6 }, {
                 ui.label({
                     text = track_label,
@@ -540,10 +552,28 @@ local function build_player_bar()
             }),
             ui.label({
                 text = track_meta,
-                fontSize = theme.fontTitle,
+                fontSize = theme.fontBody,
                 maxLines = 1,
                 color = is_playing and "primary" or "on_surface_variant"
-            })
+            }),
+            (function()
+                local stats_text = ""
+                local stats = {}
+                if player.views and player.views > 0 then
+                    table.insert(stats, fmt_count(player.views) .. " views")
+                end
+                if player.likes and player.likes > 0 then
+                    table.insert(stats, fmt_count(player.likes) .. " likes")
+                end
+                stats_text = table.concat(stats, " • ")
+                if stats_text == "" then return nil end
+                return ui.label({
+                    text = stats_text,
+                    fontSize = theme.fontBody,
+                    maxLines = 1,
+                    color = "on_surface_variant"
+                })
+            end)()
         })
     })
 
@@ -732,7 +762,7 @@ width = 54,
             ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" })
         }),
         ui.label({
-            text = item.views and (item.views .. (item.duration_text ~= nil and item.duration_text ~= "" and (" • " .. item.duration_text) or "")) or (item.duration_text or ""),
+            text = item.duration_text or "",
             fontSize = theme.fontBody,
             color = "on_surface_variant"
         }),

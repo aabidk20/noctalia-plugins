@@ -533,7 +533,17 @@ local function player_set(item, stream_url)
     state.player.bitrate = nil
     state.player.codec = nil
     state.player.samplerate = nil
+    state.player.views = 0
+    state.player.likes = 0
     state.search.pending = false
+
+    if api and api.track_stats and item.id and item.id ~= "" then
+        api.track_stats(item.id, function(views, likes)
+            state.player.views = views or 0
+            state.player.likes = likes or 0
+            publish()
+        end)
+    end
 
     local title = item.title or "Unknown track"
     if item.artist and item.artist ~= "" then
@@ -1308,6 +1318,13 @@ if api and api.load_session then
         state.player.queue = type(sess.queue) == "table" and sess.queue or {}
         state.player.status = "paused"
         log("session restored: '" .. state.player.title .. "' queue=" .. #state.player.queue)
+        if api and api.track_stats and sess.id and sess.id ~= "" then
+            api.track_stats(sess.id, function(views, likes)
+                state.player.views = views or 0
+                state.player.likes = likes or 0
+                publish()
+            end)
+        end
     end
 end
 if api and api.library then

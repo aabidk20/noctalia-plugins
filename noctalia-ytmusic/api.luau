@@ -136,13 +136,6 @@ local function clean_artist(meta)
     return (meta:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local function parse_views(meta)
-    local views = tostring(meta or ""):match("(%d[%d.,]*[KMB]?%s*)%s*views?")
-    if not views then return nil end
-    views = views:gsub("%s+", "")
-    return views .. " views"
-end
-
 local function runs_text(runs)
     if type(runs) ~= "table" then return "" end
     local parts = {}
@@ -412,7 +405,6 @@ local function extract_track(node)
         artist = clean_artist(meta),
         duration = fmt_seconds(durtext),
         duration_text = durtext,
-        views = parse_views(meta),
         thumbnail_url = thumb_url
     }
 end
@@ -680,7 +672,6 @@ echo "STATUS=OK"
                             album = tr.album,
                             duration = fmt_seconds(tr.duration_text),
                             duration_text = tr.duration_text,
-                            views = parse_views(tr.artist),
                             thumbnail_url = tr.thumbnail_url
                         })
                     end
@@ -1111,6 +1102,85 @@ function API.resolve_stream(video_id, cb)
             for _, callback in ipairs(callbacks) do
                 if callback then callback(nil) end
             end
+        end
+    end, 30000)
+end
+
+local STATS_CACHE_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/stats")
+local STATS_TTL = 7 * 24 * 3600
+local stats_cache = {}
+local stats_in_flight = {}
+
+function API.track_stats(video_id, cb)
+    if type(video_id) ~= "string" or video_id == "" then
+        if cb then cb() end
+        return
+    end
+
+    local cached = stats_cache[video_id]
+    if cached and (os.time() - cached.timestamp) < STATS_TTL then
+        if cb then cb(cached.views, cached.likes) end
+        return
+    end
+
+    local safe_id = video_id:gsub("[^%w%-_]", "_")
+    local cache_file = STATS_CACHE_DIR .. "/" .. safe_id .. ".txt"
+    if noctalia.fileExists(cache_file) then
+        local raw = sanitize_str(noctalia.readFile(cache_file) or "")
+        local views = tonumber(raw:match("VIEWS=(%d+)")) or 0
+        local likes = tonumber(raw:match("LIKES=(%d+)")) or 0
+        local fetched = tonumber(raw:match("FETCHED=(%d+)")) or 0
+        if (os.time() - fetched) < STATS_TTL then
+            stats_cache[video_id] = { views = views, likes = likes, timestamp = fetched }
+            if cb then cb(views, likes) end
+            return
+        end
+    end
+
+    if stats_in_flight[video_id] then
+        table.insert(stats_in_flight[video_id], cb)
+        return
+    end
+    stats_in_flight[video_id] = { cb }
+
+    local script = ([=[
+export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
+OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
+CACHE_DIR="]=] .. STATS_CACHE_DIR .. [=["
+CACHE_FILE="$CACHE_DIR/VIDEO.txt"
+NOW=$(date +%s)
+[ -s "$OUT" ] || { echo "NOCACHE=1"; exit 0; }
+LINE=$(yt-dlp --skip-download --no-playlist --no-warnings --cookies "$OUT" --print "%(view_count)s|%(like_count)s" "https://www.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
+VIEWS=$(printf '%s' "$LINE" | cut -d'|' -f1)
+LIKES=$(printf '%s' "$LINE" | cut -d'|' -f2)
+case "$VIEWS" in
+  ''|*[!0-9]*) VIEWS=0;;
+esac
+case "$LIKES" in
+  ''|*[!0-9]*) LIKES=0;;
+esac
+mkdir -p "$CACHE_DIR"
+printf 'VIEWS=%s\nLIKES=%s\nFETCHED=%s\n' "$VIEWS" "$LIKES" "$NOW" > "$CACHE_FILE"
+echo "STATS=$VIEWS|$LIKES"
+]=]):gsub("VIDEO", safe_id)
+    noctalia.runAsync(script, function(res)
+        local out = (type(res) == "table" and res.stdout) or ""
+        local views_likes = out:match("STATS=([%d|]+)")
+        local views = 0
+        local likes = 0
+        if views_likes then
+            local v, l = views_likes:match("^(%d*)|(%d*)$")
+            views = tonumber(v) or 0
+            likes = tonumber(l) or 0
+        end
+        if out:find("NOCACHE") then
+            views, likes = 0, 0
+        end
+        stats_cache[video_id] = { views = views, likes = likes, timestamp = os.time() }
+        local callbacks = stats_in_flight[video_id] or {}
+        stats_in_flight[video_id] = nil
+        for _, callback in ipairs(callbacks) do
+            if callback then callback(views, likes) end
         end
     end, 30000)
 end
