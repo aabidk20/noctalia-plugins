@@ -45,7 +45,7 @@ local state = {
     },
     search = {
         query = "",
-        type = "songs",
+        type = "top",
         results = {},
         pending = false
     },
@@ -912,7 +912,7 @@ noctalia.state.watch(REQ, function(req)
         open_login(req.browser)
     elseif req.action == "search" then
         if api and api.search then
-            local stype = req.type == "playlists" and "playlists" or "songs"
+            local stype = (req.type == "playlists" or req.type == "top") and req.type or "songs"
             state.search.pending = true
             state.search.query = tostring(req.query or "")
             state.search.type = stype

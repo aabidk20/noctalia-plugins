@@ -560,6 +560,8 @@ function API.search(query, count, cb, search_type)
     local params = "EgWKAQIIAWoQChADEAQQCRAFEAoQBRAE"
     if search_type == "playlists" then
         params = "EgWKAQIKAWoQChADEAQQCRAFEAoQBRAE"
+    elseif search_type == "top" then
+        params = ""
     end
     innerTube("search", {
         context = CONTEXT.context,
@@ -575,7 +577,50 @@ function API.search(query, count, cb, search_type)
         noctalia.writeFile(raw_file, raw_body)
 
         local script
-        if search_type == "playlists" then
+        if search_type == "top" then
+            script = ([=[
+jq '
+  ([.. | objects | select(has("musicCardShelfRenderer")) | .musicCardShelfRenderer] | .[0] // null) as $rawcard
+  |
+  ([
+    .. | objects | select(has("musicCardShelfRenderer")) | .musicCardShelfRenderer |
+    .contents[]? |
+    .. | objects | select(has("musicResponsiveListItemRenderer")) |
+    .musicResponsiveListItemRenderer |
+    (.playlistItemData.videoId // "")
+  ] | map(select(. != ""))) as $skip
+  |
+  ([$rawcard | select((.onTap.watchEndpoint.videoId // "") != "") | {
+    id: .onTap.watchEndpoint.videoId,
+    kind: "song",
+    title: (.title.runs[0].text // ""),
+    artist: ([.subtitle.runs[].text] | join("")),
+    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
+  }] | .[0]) as $card
+  |
+  {
+    results: reduce (
+      ($card // empty),
+      (.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer |
+        ((.playlistItemData.videoId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // "") as $vid |
+         (.navigationEndpoint.browseEndpoint.browseId // "") as $bid |
+         select($vid != "" or $bid != "") |
+         select(($skip | index($vid)) == null) |
+         {
+           id: (if $vid != "" then $vid else $bid end),
+           kind: (if $vid != "" then "song" else if $bid != "" then "playlist" else "other" end end),
+           title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+           artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
+           album: (.flexColumns[2].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+           duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
+           thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
+         }))
+    ) as $it ([]; if (map(.id) | index($it.id)) then . else . + [$it] end)
+  }
+' "%s" > "%s" 2>/dev/null
+echo "STATUS=OK"
+]=]):format(raw_file, clean_file)
+        elseif search_type == "playlists" then
             script = ([=[
 jq '{
   playlists: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
@@ -608,10 +653,10 @@ echo "STATUS=OK"
             if noctalia.fileExists(clean_file) then
                 local raw_clean = noctalia.readFile(clean_file)
                 local data = noctalia.json.decode(raw_clean or "")
-                local raw_key = (search_type == "playlists") and "playlists" or "tracks"
+                local raw_key = (search_type == "playlists") and "playlists" or ((search_type == "top") and "results" or "tracks")
                 local raw_items = (type(data) == "table" and type(data[raw_key]) == "table") and data[raw_key] or {}
                 for _, tr in ipairs(raw_items) do
-                    if search_type == "playlists" then
+                    if search_type == "playlists" or (search_type == "top" and tr.kind == "playlist") then
                         table.insert(out, {
                             type = "playlist",
                             id = tr.id,

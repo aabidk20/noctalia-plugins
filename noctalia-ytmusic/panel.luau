@@ -44,7 +44,7 @@ local state = {
         queue = {},
         index = 0
     },
-    search = { query = "", type = "songs", results = {}, pending = false },
+    search = { query = "", type = "top", results = {}, pending = false },
     library = {},
     recent_playlists = {},
     playlist = { id = "", title = "", tracks = {} },
@@ -1253,9 +1253,16 @@ local function build_discover()
 
     table.insert(view, ui.row({ key = "search-tabs", gap = 8, align = "center" }, {
         ui.button({
+            key = "tab-top",
+            text = "Top",
+            variant = state.search.type == "top" and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function() on_toggle_search_type("top") end
+        }),
+        ui.button({
             key = "tab-songs",
             text = "Songs",
-            variant = state.search.type ~= "playlists" and "primary" or "ghost",
+            variant = state.search.type == "songs" and "primary" or "ghost",
             controlSize = "sm",
             onClick = function() on_toggle_search_type("songs") end
         }),
