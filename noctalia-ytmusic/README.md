@@ -10,8 +10,9 @@ shell panel. Inspired by [Omarchy-Spotify](https://github.com/stappmus/Omarchy-S
   slider and mute, like/unlike, and a hover tooltip showing codec, bitrate,
   sample rate, and output
 - **Full panel** — home feed (Quick Picks, recommended mixes & radios, your
-  library), playlist view with pagination and "Play all", search, queue with
-  jump-to-track, and a cookies & login page
+  library), playlist view with pagination and "Play all", search with Top /
+  Songs / Playlists tabs, queue with jump-to-track, and a cookies & login page
+- **Now playing** — view/like counts for the current track
 - **Playback** — queue-based control (track, playlist, search, queue index),
   session restore on restart, and prefetching of upcoming streams to avoid gaps
 - **Offline** — cache individual tracks or entire playlists; audio, stream,
