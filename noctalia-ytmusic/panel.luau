@@ -836,6 +836,19 @@ width = 54,
                 ui.column({ gap = 1, flexGrow = 1 }, {
                     ui.label({ text = t.title or "Unknown Track", fontSize = theme.fontTitle, maxLines = 1, color = is_current and "primary" or "on_surface" }),
                     ui.label({ text = t.artist or "", fontSize = theme.fontTitle, maxLines = 1, color = "on_surface_variant" })
+                }),
+                ui.button({
+                    key = cell_key .. "-playnext",
+                    glyph = "playlist-add",
+                    variant = "ghost",
+                    controlSize = "sm",
+                    tooltip = "Play next",
+                    onClick = function()
+                        hovered_track_key = nil
+                        if t and t.id then
+                            request("play_next", { item = t })
+                        end
+                    end
                 })
             }))
         end
