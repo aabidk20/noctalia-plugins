@@ -136,6 +136,13 @@ local function clean_artist(meta)
     return (meta:gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
+local function parse_views(meta)
+    local views = tostring(meta or ""):match("(%d[%d.,]*[KMB]?%s*)%s*views?")
+    if not views then return nil end
+    views = views:gsub("%s+", "")
+    return views .. " views"
+end
+
 local function runs_text(runs)
     if type(runs) ~= "table" then return "" end
     local parts = {}
@@ -405,6 +412,7 @@ local function extract_track(node)
         artist = clean_artist(meta),
         duration = fmt_seconds(durtext),
         duration_text = durtext,
+        views = parse_views(meta),
         thumbnail_url = thumb_url
     }
 end
@@ -672,6 +680,7 @@ echo "STATUS=OK"
                             album = tr.album,
                             duration = fmt_seconds(tr.duration_text),
                             duration_text = tr.duration_text,
+                            views = parse_views(tr.artist),
                             thumbnail_url = tr.thumbnail_url
                         })
                     end

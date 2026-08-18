@@ -732,7 +732,7 @@ width = 54,
             ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" })
         }),
         ui.label({
-            text = item.duration_text or "",
+            text = item.views and (item.views .. (item.duration_text ~= nil and item.duration_text ~= "" and (" • " .. item.duration_text) or "")) or (item.duration_text or ""),
             fontSize = theme.fontBody,
             color = "on_surface_variant"
         }),
