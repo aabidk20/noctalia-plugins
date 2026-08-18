@@ -548,18 +548,23 @@ local CONTEXT = {
     },
 }
 
-function API.search(query, count, cb)
+function API.search(query, count, cb, search_type)
     query = sanitize(query):gsub("^%s+", ""):gsub("%s+$", "")
     count = tonumber(count) or 25
-    log("search query='" .. query .. "'")
+    search_type = tostring(search_type or "songs")
+    log("search query='" .. query .. "' type='" .. search_type .. "'")
     if query == "" then
         cb({})
         return
     end
+    local params = "EgWKAQIIAWoQChADEAQQCRAFEAoQBRAE"
+    if search_type == "playlists" then
+        params = "EgWKAQIKAWoQChADEAQQCRAFEAoQBRAE"
+    end
     innerTube("search", {
         context = CONTEXT.context,
         query = query,
-        params = "EgWKAQIIAWoQChADEAQQCRAFEAoQBRAE",
+        params = params,
     }, function(raw_body, err)
         if not raw_body or raw_body == "" then
             cb(nil, err or "empty response")
@@ -569,7 +574,21 @@ function API.search(query, count, cb)
         local clean_file = "/tmp/noctalia-ytmusic-search-clean.json"
         noctalia.writeFile(raw_file, raw_body)
 
-        local script = ([=[
+        local script
+        if search_type == "playlists" then
+            script = ([=[
+jq '{
+  playlists: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
+    id: (.navigationEndpoint.browseEndpoint.browseId // ""),
+    title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+    artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
+    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
+  } | select(.id != "" and .title != "")] | unique_by(.id)
+}' "%s" > "%s" 2>/dev/null
+echo "STATUS=OK"
+]=]):format(raw_file, clean_file)
+        else
+            script = ([=[
 jq '{
   tracks: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
     id: (.playlistItemData.videoId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // .doubleTapCommand.watchEndpoint.videoId // ""),
@@ -582,27 +601,39 @@ jq '{
 }' "%s" > "%s" 2>/dev/null
 echo "STATUS=OK"
 ]=]):format(raw_file, clean_file)
+        end
 
         noctalia.runAsync(script, function(res)
             local out = {}
             if noctalia.fileExists(clean_file) then
                 local raw_clean = noctalia.readFile(clean_file)
                 local data = noctalia.json.decode(raw_clean or "")
-                local raw_tracks = (type(data) == "table" and type(data.tracks) == "table") and data.tracks or {}
-                for _, tr in ipairs(raw_tracks) do
-                    table.insert(out, {
-                        id = tr.id,
-                        title = tr.title,
-                        artist = clean_artist(tr.artist),
-                        album = tr.album,
-                        duration = fmt_seconds(tr.duration_text),
-                        duration_text = tr.duration_text,
-                        thumbnail_url = tr.thumbnail_url
-                    })
+                local raw_key = (search_type == "playlists") and "playlists" or "tracks"
+                local raw_items = (type(data) == "table" and type(data[raw_key]) == "table") and data[raw_key] or {}
+                for _, tr in ipairs(raw_items) do
+                    if search_type == "playlists" then
+                        table.insert(out, {
+                            type = "playlist",
+                            id = tr.id,
+                            title = tr.title,
+                            artist = clean_artist(tr.artist),
+                            thumbnail_url = tr.thumbnail_url
+                        })
+                    else
+                        table.insert(out, {
+                            id = tr.id,
+                            title = tr.title,
+                            artist = clean_artist(tr.artist),
+                            album = tr.album,
+                            duration = fmt_seconds(tr.duration_text),
+                            duration_text = tr.duration_text,
+                            thumbnail_url = tr.thumbnail_url
+                        })
+                    end
                     if #out >= count then break end
                 end
             end
-            log(string.format("search got %d results, first='%s'", #out, tostring(out[1] and out[1].title)))
+            log(string.format("search got %d results type='%s' first='%s'", #out, search_type, tostring(out[1] and out[1].title)))
             cb(out)
         end)
     end, true)
@@ -610,7 +641,28 @@ end
 
 local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"
 local LIBRARY_CACHE_PATH = CACHE_DIR .. "/library.json"
+local RECENT_PLAYLISTS_CACHE_PATH = CACHE_DIR .. "/recent_playlists.json"
 local PLAYLISTS_CACHE_DIR = CACHE_DIR .. "/playlists"
+
+function API.load_cached_recent_playlists()
+    if not noctalia.fileExists(RECENT_PLAYLISTS_CACHE_PATH) then return nil end
+    local raw = noctalia.readFile(RECENT_PLAYLISTS_CACHE_PATH)
+    if not raw or raw == "" then return nil end
+    local data, _ = noctalia.json.decode(raw)
+    if type(data) == "table" and #data > 0 then
+        return data
+    end
+    return nil
+end
+
+function API.save_recent_playlists_cache(playlists)
+    if type(playlists) ~= "table" or #playlists == 0 then return end
+    local encoded = noctalia.json.encode(playlists)
+    if encoded then
+        noctalia.writeFile(RECENT_PLAYLISTS_CACHE_PATH, encoded)
+        log("saved " .. #playlists .. " playlists to recent_playlists cache")
+    end
+end
 
 function API.load_cached_library()
     if not noctalia.fileExists(LIBRARY_CACHE_PATH) then return nil end
@@ -1190,7 +1242,7 @@ jq '{
     subtitle: (.subtitle.runs[0].text // ""),
     videoId: (.navigationEndpoint.watchEndpoint.videoId // ""),
     thumbnail_url: (.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // .thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^VLR")) and (.subtitle | test("[0-9]+ tracks") | not) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:6]
+  } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^VL")) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:24]
 }' "/tmp/noctalia-ytmusic-home-raw.json" > "]=] .. tmp_out .. [=[" 2>/dev/null
 echo "STATUS=OK"
 ]=]
@@ -1207,6 +1259,14 @@ echo "STATUS=OK"
                 API.save_quick_picks_cache(tracks)
             end
             if #mixes > 0 then
+                math.randomseed(os.time() + #mixes)
+                for i = #mixes, 2, -1 do
+                    local j = math.random(1, i)
+                    mixes[i], mixes[j] = mixes[j], mixes[i]
+                end
+                for i = #mixes, 7, -1 do
+                    table.remove(mixes)
+                end
                 API.attach_cached_thumbs(mixes)
             end
             if callback then callback(tracks, mixes) end

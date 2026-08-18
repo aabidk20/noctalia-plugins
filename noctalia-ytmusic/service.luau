@@ -45,6 +45,7 @@ local state = {
     },
     search = {
         query = "",
+        type = "songs",
         results = {},
         pending = false
     },
@@ -58,6 +59,7 @@ local state = {
         title = "",
         tracks = {}
     },
+    recent_playlists = {},
     liked_ids = {},
     cached_audio_ids = {},
     downloaded_playlist_ids = {},
@@ -122,6 +124,7 @@ publish = function()
     snap.downloaded_playlist_ids = state.downloaded_playlist_ids
     snap.quick_picks = state.quick_picks
     snap.home_mixes = state.home_mixes
+    snap.recent_playlists = state.recent_playlists
     snap.cache_stats = state.cache_stats
     snap.settings = state.settings
     noctalia.state.set(STATE, snap)
@@ -595,6 +598,20 @@ local function play_index(index, queue)
     end)
 end
 
+local function remember_playlist(pid, title)
+    if not pid or pid == "" then return end
+    local cleaned = {}
+    for _, pl in ipairs(state.recent_playlists or {}) do
+        if tostring(pl.id or "") ~= pid then table.insert(cleaned, pl) end
+    end
+    table.insert(cleaned, 1, { id = pid, title = tostring(title or "Playlist") })
+    while #cleaned > 3 do table.remove(cleaned) end
+    state.recent_playlists = cleaned
+    if api and api.save_recent_playlists_cache then
+        api.save_recent_playlists_cache(cleaned)
+    end
+end
+
 local function play(item)
     table.insert(state.player.queue, {
         id = item.id,
@@ -895,8 +912,10 @@ noctalia.state.watch(REQ, function(req)
         open_login(req.browser)
     elseif req.action == "search" then
         if api and api.search then
+            local stype = req.type == "playlists" and "playlists" or "songs"
             state.search.pending = true
             state.search.query = tostring(req.query or "")
+            state.search.type = stype
             publish()
             api.search(state.search.query, 25, function(results)
                 state.search.pending = false
@@ -905,7 +924,7 @@ noctalia.state.watch(REQ, function(req)
                 noctalia.runAsync("true", function()
                     api.ensure_thumbnails(state.search.results, publish, "search")
                 end)
-            end)
+            end, stype)
         end
     elseif req.action == "play" then
         log("play: id=" .. tostring(req.item and req.item.id) .. " title='" .. tostring(req.item and req.item.title) .. "'")
@@ -914,15 +933,23 @@ noctalia.state.watch(REQ, function(req)
         play_next(req.item or {})
     elseif req.action == "play_queue_index" then
         play_index(req.index or 1)
-    elseif req.action == "play_with_queue" then
+elseif req.action == "play_with_queue" then
         if req.queue and #req.queue > 0 then
+            if req.source_playlist and req.source_playlist ~= "" then
+                local spid = tostring(req.source_playlist)
+                local is_library = false
+                for _, pl in ipairs(state.library) do
+                    if tostring(pl.id or "") == spid then is_library = true break end
+                end
+                if not is_library then
+                    remember_playlist(spid, state.playlist.title or "Playlist")
+                end
+            end
             state.player.source_playlist = req.source_playlist
             play_index(req.index or 1, req.queue)
         elseif req.item then
             play(req.item)
         end
-    elseif req.action == "play_query" then
-        play_query(req.query)
     elseif req.action == "play_playlist" then
         local pid = req.id or req.playlist_id
         if pid and pid ~= "" then
@@ -1258,6 +1285,12 @@ if api and api.load_cached_library then
     local cached_lib = api.load_cached_library()
     if cached_lib then
         state.library = cached_lib
+    end
+end
+if api and api.load_cached_recent_playlists then
+    local cached_recent = api.load_cached_recent_playlists()
+    if cached_recent then
+        state.recent_playlists = cached_recent
     end
 end
 if api and api.load_session then

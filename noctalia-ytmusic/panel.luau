@@ -44,8 +44,9 @@ local state = {
         queue = {},
         index = 0
     },
-    search = { query = "", results = {}, pending = false },
+    search = { query = "", type = "songs", results = {}, pending = false },
     library = {},
+    recent_playlists = {},
     playlist = { id = "", title = "", tracks = {} },
     quick_picks = {},
     home_mixes = {},
@@ -134,7 +135,7 @@ local function do_search(query)
     state.search.pending = true
     state.search.query = query
     state.search.results = {}
-    request("search", { query = query })
+    request("search", { query = query, type = state.search.type })
     render_panel()
 end
 
@@ -157,6 +158,17 @@ local function on_search_type(val)
             do_search(target_q)
         end
     end)
+end
+
+local function on_toggle_search_type(stype)
+    if state.search.type == stype then return end
+    state.search.type = stype
+    if last_searched_query ~= "" and content_page == "discover" then
+        do_search(last_searched_query)
+    else
+        state.search.results = {}
+        render_panel()
+    end
 end
 
 local loading_track_id = nil
@@ -397,6 +409,28 @@ local function build_sidebar()
     end
 
     table.insert(sidebar_items, ui.separator({ key = "sep-side", color = "outline", spacing = 8 }))
+
+    if type(state.recent_playlists) == "table" and #state.recent_playlists > 0 then
+        table.insert(sidebar_items, ui.row({ key = "label-recent", gap = 0, padding = 6, borderWidth = 0 }, {
+            ui.label({
+                text = "RECENTLY PLAYED",
+                fontSize = theme.fontBody,
+                fontWeight = "bold",
+                color = "on_surface_variant"
+            })
+        }))
+
+        for idx, pl in ipairs(state.recent_playlists) do
+            local pl_id = tostring(pl.id or "")
+            local key = "recent-" .. idx
+            local active = (content_page == "playlist" and pl_id ~= "" and state.playlist.id == pl_id)
+            table.insert(sidebar_items, sidebar_row(key, "clock", pl.title, nil, active, function()
+                open_playlist(pl)
+            end))
+        end
+
+        table.insert(sidebar_items, ui.separator({ key = "sep-recent", color = "outline", spacing = 8 }))
+    end
 
     table.insert(sidebar_items, ui.row({ key = "label-library", gap = 0, padding = 6, borderWidth = 0 }, {
         ui.label({
@@ -1159,6 +1193,47 @@ local function build_playlist_view()
     return view
 end
 
+local function playlist_row(item, idx)
+    local row_key = "plrow-" .. idx
+    local is_hovered = (hovered_track_key == row_key)
+
+    local thumb
+    if item.thumb_path and noctalia.fileExists(item.thumb_path) then
+        thumb = ui.image({ path = item.thumb_path, width = 54, height = 54, fit = "cover" })
+    else
+        thumb = ui.row({
+            width = 54,
+            height = 54,
+            align = "center",
+            justify = "center",
+            fill = "surface_variant/0.3",
+            borderWidth = 0
+        }, {
+            ui.glyph({ name = "playlist", size = 20, color = is_hovered and "primary" or "on_surface_variant" })
+        })
+    end
+
+    return ui.row({
+        key = row_key,
+        gap = 14,
+        align = "center",
+        padding = 8,
+        borderWidth = 0,
+        fill = is_hovered and "primary/0.25" or "surface_variant/0.15",
+        onClick = function()
+            hovered_track_key = nil
+            open_playlist(item)
+        end,
+        onHover = "onTrackHover"
+    }, {
+        thumb,
+        ui.column({ gap = 2, flexGrow = 1 }, {
+            ui.label({ text = item.title or "Unknown Playlist", fontSize = theme.fontTitle, maxLines = 1, color = "on_surface" }),
+            ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" })
+        })
+    })
+end
+
 local function build_discover()
     local view = {}
 
@@ -1176,6 +1251,23 @@ local function build_discover()
 
     table.insert(view, ui.separator({ key = "sep-discover", color = "outline" }))
 
+    table.insert(view, ui.row({ key = "search-tabs", gap = 8, align = "center" }, {
+        ui.button({
+            key = "tab-songs",
+            text = "Songs",
+            variant = state.search.type ~= "playlists" and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function() on_toggle_search_type("songs") end
+        }),
+        ui.button({
+            key = "tab-playlists",
+            text = "Playlists",
+            variant = state.search.type == "playlists" and "primary" or "ghost",
+            controlSize = "sm",
+            onClick = function() on_toggle_search_type("playlists") end
+        })
+    }))
+
     local rows = {}
     if state.search.pending then
         table.insert(rows, ui.label({
@@ -1191,9 +1283,13 @@ local function build_discover()
         }))
     else
         for idx, t in ipairs(state.search.results) do
-            table.insert(rows, media_row(t, idx, function()
-                request("play_with_queue", { item = t, index = idx, queue = state.search.results })
-            end, state.player.id == t.id))
+            if t.type == "playlist" then
+                table.insert(rows, playlist_row(t, idx))
+            else
+                table.insert(rows, media_row(t, idx, function()
+                    request("play_with_queue", { item = t, index = idx, queue = state.search.results })
+                end, state.player.id == t.id))
+            end
         end
     end
 
@@ -1509,6 +1605,9 @@ local function apply_state(s)
     end
     if type(s.library) == "table" then
         state.library = s.library
+    end
+    if type(s.recent_playlists) == "table" then
+        state.recent_playlists = s.recent_playlists
     end
     if type(s.playlist) == "table" then
         local old_count = #state.playlist.tracks
