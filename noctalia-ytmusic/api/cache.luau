@@ -6,12 +6,11 @@
 local logger = require("../log.luau")
 local function log(msg) logger.log("ytapi", msg) end
 
-local XDG_CACHE = noctalia.getenv("XDG_CACHE_HOME")
-local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"
-local LIBRARY_CACHE_PATH = CACHE_DIR .. "/library.json"
-local RECENT_PLAYLISTS_CACHE_PATH = CACHE_DIR .. "/recent_playlists.json"
-local PLAYLISTS_CACHE_DIR = CACHE_DIR .. "/playlists"
-local SESSION_CACHE_PATH = CACHE_DIR .. "/session.json"
+local const = require("./constants.luau")
+local LIBRARY_CACHE_PATH = const.LIBRARY_CACHE_PATH
+local RECENT_PLAYLISTS_CACHE_PATH = const.RECENT_PLAYLISTS_CACHE_PATH
+local PLAYLISTS_CACHE_DIR = const.PLAYLISTS_CACHE_DIR
+local SESSION_CACHE_PATH = const.SESSION_CACHE_PATH
 
 return function(api: any)
     local EXPO = {}

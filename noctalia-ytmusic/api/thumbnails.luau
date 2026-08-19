@@ -2,7 +2,8 @@
 
 -- thumbnail path/ensure/attach helpers.
 
-local THUMB_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/thumbnails")
+local const = require("./constants.luau")
+local THUMB_DIR = const.THUMB_DIR
 
 local EXPO = {}
 

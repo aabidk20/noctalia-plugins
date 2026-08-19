@@ -16,13 +16,10 @@ local const = require("./constants.luau")
 local CONTEXT = const.CONTEXT
 local ORIGIN = const.ORIGIN
 local COOKIE_PATH = const.COOKIE_PATH
+local QUICK_PICKS_CACHE_PATH = const.QUICK_PICKS_CACHE_PATH
 
 local it = require("./innerTube.luau")
 local build_auth = it.build_auth
-
-local XDG_CACHE = noctalia.getenv("XDG_CACHE_HOME")
-local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"
-local QUICK_PICKS_CACHE_PATH = CACHE_DIR .. "/quick_picks.json"
 
 return function(api: any)
     local EXPO = {}

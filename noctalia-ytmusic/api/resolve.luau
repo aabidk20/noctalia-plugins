@@ -9,8 +9,9 @@ local function log(msg) logger.log("ytapi", msg) end
 
 local const = require("./constants.luau")
 local COOKIE_PATH = const.COOKIE_PATH
-
-local STREAMS_CACHE_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/streams")
+local STREAMS_CACHE_DIR = const.STREAMS_CACHE_DIR
+local AUDIO_DIR = const.AUDIO_DIR
+local STATS_CACHE_DIR = const.STATS_CACHE_DIR
 
 local RESOLVE_SCRIPT = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
@@ -45,11 +46,9 @@ local STATS_TTL = 7 * 24 * 3600
 return function(api: any)
     local EXPO = {}
 
-    local AUDIO_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/audio")
     local stream_cache = {}
     local prefetching_ids = {}
     local resolving_in_flight = {}
-    local STATS_CACHE_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/stats")
     local stats_cache = {}
     local stats_in_flight = {}
 
