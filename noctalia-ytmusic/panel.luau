@@ -53,6 +53,22 @@ local function fmt_count(n)
     return tostring(n)
 end
 
+local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
+    if path and noctalia.fileExists(path) then
+        return ui.image({ path = path, width = size, height = size, fit = "cover" })
+    end
+    return ui.row({
+        width = size,
+        height = size,
+        align = "center",
+        justify = "center",
+        fill = fill or "surface_variant/0.3",
+        borderWidth = 0
+    }, {
+        ui.glyph({ name = glyph or "music", size = glyph_size or 20, color = color or "on_surface_variant" })
+    })
+end
+
 local function icon_btn(glyph, onClick, variant)
     local v = "ghost"
     if type(variant) == "boolean" then
@@ -177,13 +193,32 @@ local function request_extract(id)
     request("extract", { browser = id })
 end
 
+local hover_key = { sidebar = nil, track = nil, card = nil }
+
+local function hover_update(slot, hover_state, key)
+    local current = hover_key[slot]
+    if hover_state == "true" then
+        if current ~= key then
+            hover_key[slot] = key
+            render_panel()
+        end
+    elseif current == key then
+        hover_key[slot] = nil
+        render_panel()
+    end
+end
+
+function onSidebarHover(hover_state, key) hover_update("sidebar", hover_state, key) end
+function onCardHover(hover_state, key) hover_update("card", hover_state, key) end
+function onTrackHover(hover_state, key) hover_update("track", hover_state, key) end
+
 local function build_browser_cells()
     local cells = {}
     for _, b in ipairs(BROWSERS) do
         local is_avail = state.available[b.id]
         local is_current = (state.extracting and state.browser == b.id)
         local key = "browser-btn-" .. b.id
-        local is_hovered = (hovered_card_key == key)
+        local is_hovered = (hover_key.card == key)
         
         if is_current then
             table.insert(cells, ui.row({
@@ -216,9 +251,9 @@ local function build_browser_cells()
                 onClick = function() request_extract(b.id) end,
                 onHover = function(h)
                     if h == "true" then
-                        if hovered_card_key ~= key then hovered_card_key = key; render_panel() end
+                        if hover_key.card ~= key then hover_key.card = key; render_panel() end
                     else
-                        if hovered_card_key == key then hovered_card_key = nil; render_panel() end
+                        if hover_key.card == key then hover_key.card = nil; render_panel() end
                     end
                 end
             }, {
@@ -259,40 +294,8 @@ local function build_topbar()
     })
 end
 
-local hovered_sidebar_key = nil
-local hovered_track_key = nil
-local hovered_card_key = nil
-
-function onSidebarHover(hover_state, key)
-    if hover_state == "true" then
-        if hovered_sidebar_key ~= key then
-            hovered_sidebar_key = key
-            render_panel()
-        end
-    else
-        if hovered_sidebar_key ~= nil then
-            hovered_sidebar_key = nil
-            render_panel()
-        end
-    end
-end
-
-function onCardHover(hover_state, key)
-    if hover_state == "true" then
-        if hovered_card_key ~= key then
-            hovered_card_key = key
-            render_panel()
-        end
-    else
-        if hovered_card_key ~= nil then
-            hovered_card_key = nil
-            render_panel()
-        end
-    end
-end
-
 local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_path, bold_active, text_color)
-    local is_hovered = (hovered_sidebar_key == key)
+    local is_hovered = (hover_key.sidebar == key)
     local fill_color = active and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15")
     local glyph_color = (active or is_hovered) and "primary" or "on_surface_variant"
 
@@ -311,7 +314,7 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
         borderWidth = 0,
         fill = fill_color,
         onClick = function()
-            hovered_sidebar_key = nil
+            hover_key.sidebar = nil
             onClick()
         end,
         onHover = "onSidebarHover"
@@ -442,21 +445,7 @@ local function build_player_bar()
     local position = math.min(tonumber(player.position) or 0, duration)
     last_service_pos = position
 
-    local player_thumb
-    if player.thumb_path and noctalia.fileExists(player.thumb_path) then
-        player_thumb = ui.image({ path = player.thumb_path, width = 64, height = 64, fit = "cover" })
-    else
-        player_thumb = ui.row({
-            width = 64,
-            height = 64,
-            align = "center",
-            justify = "center",
-            fill = "surface_variant/0.3",
-            borderWidth = 0
-        }, {
-            ui.glyph({ name = "music", size = 24, color = is_playing and "primary" or "on_surface_variant" })
-        })
-    end
+    local player_thumb = thumb_or_placeholder(player.thumb_path, 64, "music", 24, is_playing and "primary" or "on_surface_variant")
 
     local now_playing = ui.row({ key = "pb-now", align = "center", gap = 10, width = 300 }, {
         player_thumb,
@@ -630,43 +619,15 @@ local function build_player_bar()
     })
 end
 
-function onTrackHover(hover_state, key)
-    if hover_state == "true" then
-        if hovered_track_key ~= key then
-            hovered_track_key = key
-            render_panel()
-        end
-    else
-        if hovered_track_key == key then
-            hovered_track_key = nil
-            render_panel()
-        end
-    end
-end
-
 local function media_row(item, idx, custom_click, is_active)
     local handler = custom_click or function() play_item(item) end
     local row_key = "track-" .. idx
-    local is_hovered = (hovered_track_key == row_key)
+    local is_hovered = (hover_key.track == row_key)
     local is_playing = (state.player.id ~= "" and item.id ~= nil and state.player.id == item.id and state.player.status == "playing")
     local is_loading = (loading_track_id ~= nil and item.id ~= nil and loading_track_id == item.id) or (state.player.id ~= "" and item.id ~= nil and state.player.id == item.id and state.player.status == "loading")
     local is_current = is_active or is_playing or is_loading
 
-    local track_thumb
-    if item.thumb_path and noctalia.fileExists(item.thumb_path) then
-        track_thumb = ui.image({ path = item.thumb_path, width = 54, height = 54, fit = "cover" })
-    else
-        track_thumb = ui.row({
-width = 54,
-                    height = 54,
-                    align = "center",
-                    justify = "center",
-                    fill = is_current and "primary/0.2" or "surface_variant/0.3",
-                    borderWidth = 0
-        }, {
-            ui.glyph({ name = "music", size = 20, color = (is_current or is_hovered) and "primary" or "on_surface_variant" })
-        })
-    end
+    local track_thumb = thumb_or_placeholder(item.thumb_path, 54, "music", 20, (is_current or is_hovered) and "primary" or "on_surface_variant", is_current and "primary/0.2" or "surface_variant/0.3")
 
     local status_glyph
     if is_loading then
@@ -685,7 +646,7 @@ width = 54,
         borderWidth = 0,
         fill = (is_loading or is_current) and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
         onClick = function()
-            hovered_track_key = nil
+            hover_key.track = nil
             if item and item.id then loading_track_id = item.id end
             handler()
             render_panel()
@@ -727,7 +688,7 @@ width = 54,
             controlSize = "sm",
             tooltip = "Play next",
             onClick = function()
-                hovered_track_key = nil
+                hover_key.track = nil
                 if item and item.id then
                     request("play_next", { item = item })
                 end
@@ -788,23 +749,9 @@ local function build_home()
         for idx, t in ipairs(state.quick_picks) do
             local cell_key = "qp-" .. idx
             local is_current = (state.player.id ~= "" and t.id ~= nil and state.player.id == t.id)
-            local is_hovered = (hovered_track_key == cell_key)
+            local is_hovered = (hover_key.track == cell_key)
 
-            local thumb
-            if t.thumb_path and noctalia.fileExists(t.thumb_path) then
-                thumb = ui.image({ path = t.thumb_path, width = 54, height = 54, fit = "cover" })
-            else
-                thumb = ui.row({
-width = 54,
-            height = 54,
-            align = "center",
-            justify = "center",
-            fill = is_current and "primary/0.2" or "surface_variant/0.3",
-            borderWidth = 0
-                }, {
-                    ui.glyph({ name = "music", size = 20, color = is_current and "primary" or "on_surface_variant" })
-                })
-            end
+            local thumb = thumb_or_placeholder(t.thumb_path, 54, "music", 20, is_current and "primary" or "on_surface_variant", is_current and "primary/0.2" or "surface_variant/0.3")
 
             table.insert(qp_cells, ui.row({
                 key = cell_key,
@@ -815,18 +762,18 @@ width = 54,
                 fill = is_current and "primary/0.2" or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
                 flexGrow = 1,
                 onClick = function()
-                    hovered_track_key = nil
+                    hover_key.track = nil
                     request("play_with_queue", { item = t, index = idx, queue = state.quick_picks })
                 end,
                 onHover = function(hover_state)
                     if hover_state == "true" then
-                        if hovered_track_key ~= cell_key then
-                            hovered_track_key = cell_key
+                        if hover_key.track ~= cell_key then
+                            hover_key.track = cell_key
                             render_panel()
                         end
                     else
-                        if hovered_track_key ~= nil then
-                            hovered_track_key = nil
+                        if hover_key.track ~= nil then
+                            hover_key.track = nil
                             render_panel()
                         end
                     end
@@ -844,7 +791,7 @@ width = 54,
                     controlSize = "sm",
                     tooltip = "Play next",
                     onClick = function()
-                        hovered_track_key = nil
+                        hover_key.track = nil
                         if t and t.id then
                             request("play_next", { item = t })
                         end
@@ -876,7 +823,7 @@ width = 54,
             local item_title = mix.title or "Mix"
             local item_sub = (mix.subtitle and mix.subtitle ~= "") and mix.subtitle or "YouTube Radio"
             local mix_key = "mix-" .. tostring(mix.id or item_title)
-            local mix_hovered = (hovered_card_key == mix_key)
+            local mix_hovered = (hover_key.card == mix_key)
             table.insert(mix_cards, ui.column({
                 key = mix_key,
                 gap = 10,
@@ -886,22 +833,12 @@ width = 54,
                 fill = mix_hovered and "primary/0.12" or "primary/0.04",
                 flexGrow = 1,
                 onClick = function()
-                    hovered_card_key = nil
+                    hover_key.card = nil
                     open_playlist({ id = mix.id, title = item_title })
                 end,
                 onHover = "onCardHover"
             }, {
-                mix.thumb_path and noctalia.fileExists(mix.thumb_path)
-                    and ui.image({ path = mix.thumb_path, width = 200, height = 200, fit = "cover" })
-                    or ui.row({
-                        align = "center",
-                        justify = "center",
-                        height = 200,
-                        borderWidth = 0,
-                        fill = mix_hovered and "primary/0.2" or "surface_variant/0.6"
-                    }, {
-                        ui.glyph({ name = "disc", size = 38, color = "primary" })
-                    }),
+                thumb_or_placeholder(mix.thumb_path, 200, "disc", 38, "primary", mix_hovered and "primary/0.2" or "surface_variant/0.6"),
                 ui.column({ gap = 2, flexGrow = 1 }, {
                     ui.label({ text = item_title, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface" }),
                     ui.label({ text = item_sub, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface_variant" })
@@ -929,7 +866,7 @@ width = 54,
         local cards = {}
         for _, pl in ipairs(state.library) do
             local card_key = "pl-card-" .. pl.id
-            local card_hovered = (hovered_card_key == card_key)
+            local card_hovered = (hover_key.card == card_key)
 
             local pl_id = tostring(pl.id or "")
             local is_pl_downloaded = (state.downloaded_playlist_ids and state.downloaded_playlist_ids[pl_id] == true)
@@ -943,22 +880,12 @@ width = 54,
                 fill = card_hovered and "primary/0.12" or "primary/0.04",
                 flexGrow = 1,
                 onClick = function()
-                    hovered_card_key = nil
+                    hover_key.card = nil
                     open_playlist(pl)
                 end,
                 onHover = "onCardHover"
             }, {
-                pl.thumb_path and noctalia.fileExists(pl.thumb_path)
-                    and ui.image({ path = pl.thumb_path, width = 200, height = 200, fit = "cover" })
-                    or ui.row({
-                        align = "center",
-                        justify = "center",
-                        height = 200,
-                        borderWidth = 0,
-                        fill = card_hovered and "primary/0.2" or "surface_variant/0.6"
-                    }, {
-                        ui.glyph({ name = "playlist", size = 38, color = "primary" })
-                    }),
+                thumb_or_placeholder(pl.thumb_path, 200, "playlist", 38, "primary", card_hovered and "primary/0.2" or "surface_variant/0.6"),
                 ui.column({ gap = 2, flexGrow = 1 }, {
                     ui.row({ align = "center", justify = "space_between" }, {
                         ui.label({ text = pl.title, fontSize = theme.fontTitle, maxLines = 1, color = "on_surface", flexGrow = 1 }),
@@ -1157,23 +1084,9 @@ end
 
 local function playlist_row(item, idx)
     local row_key = "plrow-" .. idx
-    local is_hovered = (hovered_track_key == row_key)
+    local is_hovered = (hover_key.track == row_key)
 
-    local thumb
-    if item.thumb_path and noctalia.fileExists(item.thumb_path) then
-        thumb = ui.image({ path = item.thumb_path, width = 54, height = 54, fit = "cover" })
-    else
-        thumb = ui.row({
-            width = 54,
-            height = 54,
-            align = "center",
-            justify = "center",
-            fill = "surface_variant/0.3",
-            borderWidth = 0
-        }, {
-            ui.glyph({ name = "playlist", size = 20, color = is_hovered and "primary" or "on_surface_variant" })
-        })
-    end
+    local thumb = thumb_or_placeholder(item.thumb_path, 54, "playlist", 20, is_hovered and "primary" or "on_surface_variant")
 
     return ui.row({
         key = row_key,
@@ -1183,7 +1096,7 @@ local function playlist_row(item, idx)
         borderWidth = 0,
         fill = is_hovered and "primary/0.25" or "surface_variant/0.15",
         onClick = function()
-            hovered_track_key = nil
+            hover_key.track = nil
             open_playlist(item)
         end,
         onHover = "onTrackHover"
