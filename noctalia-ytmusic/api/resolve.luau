@@ -14,6 +14,8 @@ local STATS_CACHE_DIR = const.STATS_CACHE_DIR
 local thumbs = require("./thumbnails.luau")
 local get_thumbnail_path = thumbs.get_thumbnail_path
 
+local types = require("../types.luau")
+
 local RESOLVE_SCRIPT = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
 OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
@@ -52,7 +54,7 @@ local resolving_in_flight = {}
 local stats_cache = {}
 local stats_in_flight = {}
 
-function EXPO.get_audio_cache_path(video_id)
+function EXPO.get_audio_cache_path(video_id: string): string?
     if type(video_id) ~= "string" or video_id == "" then return nil end
     local safe_id = video_id:gsub("[^%w%-_]", "_")
     local path = AUDIO_DIR .. "/" .. safe_id .. ".opus"
@@ -100,7 +102,7 @@ function EXPO.cache_audio(video_id, callback)
     end
 end
 
-function EXPO.resolve_stream(video_id, cb)
+function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
     if type(video_id) ~= "string" or video_id == "" then
         if cb then cb(nil) end
         return
@@ -164,9 +166,9 @@ function EXPO.resolve_stream(video_id, cb)
     end, 30000)
 end
 
-function EXPO.track_stats(video_id, cb)
+function EXPO.track_stats(video_id: string, cb: ((number, number) -> ())?)
     if type(video_id) ~= "string" or video_id == "" then
-        if cb then cb() end
+        if cb then cb(0, 0) end
         return
     end
 
@@ -238,7 +240,7 @@ echo "STATS=$VIEWS|$LIKES"
     end, 30000)
 end
 
-function EXPO.prefetch_track(item)
+function EXPO.prefetch_track(item: types.Track)
     if type(item) ~= "table" or not item.id or item.id == "" then return end
     local id = item.id
 
@@ -259,7 +261,7 @@ function EXPO.prefetch_track(item)
     end
 end
 
-function EXPO.prefetch_queue(queue, current_index)
+function EXPO.prefetch_queue(queue: { types.Track }, current_index)
     if type(queue) ~= "table" or #queue == 0 then return end
     current_index = current_index or 1
     -- Only prefetch 1 track ahead to prevent thread pool exhaustion and UI freezing

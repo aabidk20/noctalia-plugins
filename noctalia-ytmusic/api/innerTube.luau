@@ -25,7 +25,7 @@ local EXPO = {}
 
 local function sha1(msg: string): string
     local mod32 = 0xFFFFFFFF
-    local function hex32(n)
+    local function hex32(n: number)
         local h = "0123456789abcdef"
         local out = {}
         for i = 1, 8 do
@@ -172,7 +172,7 @@ local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> 
             "Content-Type: application/json",
             "Authorization: " .. auth,
             "Origin: " .. ORIGIN,
-            "Cookie: " .. cookie,
+            "Cookie: " .. (cookie or ""),
             "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
         },
     }, function(resp: Response?)

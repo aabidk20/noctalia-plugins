@@ -54,11 +54,11 @@ function Utils.fmt_seconds(text)
     text = tostring(text or "")
     local h, m, s = text:match("(%d+):(%d%d):(%d%d)")
     if h then
-        return tonumber(h) * 3600 + tonumber(m) * 60 + tonumber(s)
+        return (tonumber(h) or 0) * 3600 + (tonumber(m) or 0) * 60 + (tonumber(s) or 0)
     end
     local mm, ss = text:match("(%d+):(%d%d)")
     if mm then
-        return tonumber(mm) * 60 + tonumber(ss)
+        return (tonumber(mm) or 0) * 60 + (tonumber(ss) or 0)
     end
     return 0
 end

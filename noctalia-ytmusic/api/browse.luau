@@ -24,14 +24,16 @@ local attach_cached_thumbs = thumbs.attach_cached_thumbs
 local cache = require("./cache.luau")
 local save_library_cache = cache.save_library_cache
 
+local types = require("../types.luau")
+
 local EXPO = {}
 
 local pending_library: any? = nil
 
 function EXPO.library()
     log("library called")
-    local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_liked_playlists" })
-    local auth, cookie = build_auth()
+    local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_liked_playlists" }) or ""
+    local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
 
@@ -101,7 +103,7 @@ function EXPO.finish_library(cb: (any?, string?) -> ()?)
     if cb then cb(playlists or {}) end
 end
 
-function EXPO.playlist_page(playlist_id: string?, continuation_token: string?, cb: any)
+function EXPO.playlist_page(playlist_id: string?, continuation_token: string?, cb: (types.PlaylistPageResult?, string?) -> ())
     if type(playlist_id) ~= "string" or playlist_id == "" then
         cb({ tracks = {}, next_token = nil })
         return
@@ -111,12 +113,12 @@ function EXPO.playlist_page(playlist_id: string?, continuation_token: string?, c
     local is_cont = continuation_token and continuation_token ~= ""
     local body_json
     if is_cont then
-        body_json = noctalia.json.encode({ context = CONTEXT.context, continuation = continuation_token })
+        body_json = noctalia.json.encode({ context = CONTEXT.context, continuation = continuation_token }) or ""
     else
-        body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = pid })
+        body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = pid }) or ""
     end
 
-    local auth, cookie = build_auth()
+    local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
 
@@ -196,7 +198,7 @@ function EXPO.load_cached_quick_picks()
     return nil
 end
 
-function EXPO.save_quick_picks_cache(tracks: any?)
+function EXPO.save_quick_picks_cache(tracks: { types.Track }?)
     if type(tracks) ~= "table" or #tracks == 0 then return end
     local encoded = noctalia.json.encode(tracks)
     if encoded then
@@ -205,8 +207,8 @@ function EXPO.save_quick_picks_cache(tracks: any?)
 end
 
 function EXPO.fetch_quick_picks(callback: ((any?, any?) -> ())?)
-    local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_home" })
-    local auth, cookie = build_auth()
+    local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_home" }) or ""
+    local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
 

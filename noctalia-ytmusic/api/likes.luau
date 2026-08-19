@@ -2,9 +2,6 @@
 
 -- like / unlike endpoints.
 
-local logger = require("../log.luau")
-local function log(msg) logger.log("ytapi", msg) end
-
 local utils = require("../utils.luau")
 local sanitize = utils.Utils.sanitize
 
@@ -27,8 +24,8 @@ function EXPO.like_video(video_id: string?, callback: ((boolean) -> ())?)
     local body_json = noctalia.json.encode({
         context = CONTEXT.context,
         target = { videoId = safe_id }
-    })
-    local auth, cookie = build_auth()
+    }) or ""
+    local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
     local tmp_payload = "/tmp/noctalia-ytmusic-like-payload.json"
@@ -65,8 +62,8 @@ function EXPO.unlike_video(video_id: string?, callback: ((boolean) -> ())?)
     local body_json = noctalia.json.encode({
         context = CONTEXT.context,
         target = { videoId = safe_id }
-    })
-    local auth, cookie = build_auth()
+    }) or ""
+    local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
     local tmp_payload = "/tmp/noctalia-ytmusic-unlike-payload.json"

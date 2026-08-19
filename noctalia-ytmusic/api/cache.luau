@@ -14,9 +14,11 @@ local SESSION_CACHE_PATH = const.SESSION_CACHE_PATH
 local thumbs = require("./thumbnails.luau")
 local attach_cached_thumbs = thumbs.attach_cached_thumbs
 
+local types = require("../types.luau")
+
 local EXPO = {}
 
-function EXPO.load_cached_recent_playlists()
+function EXPO.load_cached_recent_playlists(): { types.Playlist }?
     if not noctalia.fileExists(RECENT_PLAYLISTS_CACHE_PATH) then return nil end
     local raw = noctalia.readFile(RECENT_PLAYLISTS_CACHE_PATH)
     if not raw or raw == "" then return nil end
@@ -27,7 +29,7 @@ function EXPO.load_cached_recent_playlists()
     return nil
 end
 
-function EXPO.save_recent_playlists_cache(playlists)
+function EXPO.save_recent_playlists_cache(playlists: { types.Playlist })
     if type(playlists) ~= "table" or #playlists == 0 then return end
     local encoded = noctalia.json.encode(playlists)
     if encoded then
@@ -36,11 +38,11 @@ function EXPO.save_recent_playlists_cache(playlists)
     end
 end
 
-function EXPO.load_cached_library()
+function EXPO.load_cached_library(): { types.Playlist }?
     if not noctalia.fileExists(LIBRARY_CACHE_PATH) then return nil end
     local raw = noctalia.readFile(LIBRARY_CACHE_PATH)
     if not raw or raw == "" then return nil end
-    local data, jerr = noctalia.json.decode(raw)
+    local data = noctalia.json.decode(raw)
     if type(data) == "table" and #data > 0 then
         attach_cached_thumbs(data)
         log("loaded " .. #data .. " playlists from library cache")
@@ -49,7 +51,7 @@ function EXPO.load_cached_library()
     return nil
 end
 
-function EXPO.save_library_cache(playlists)
+function EXPO.save_library_cache(playlists: { types.Playlist })
     if type(playlists) ~= "table" or #playlists == 0 then return end
     local encoded = noctalia.json.encode(playlists)
     if encoded then
@@ -58,14 +60,14 @@ function EXPO.save_library_cache(playlists)
     end
 end
 
-function EXPO.load_cached_playlist(playlist_id)
+function EXPO.load_cached_playlist(playlist_id): { types.Track }?
     if type(playlist_id) ~= "string" or playlist_id == "" then return nil end
     local safe_id = playlist_id:gsub("[^%w%-_]", "_")
     local path = PLAYLISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
     if not noctalia.fileExists(path) then return nil end
     local raw = noctalia.readFile(path)
     if not raw or raw == "" then return nil end
-    local data, jerr = noctalia.json.decode(raw)
+    local data = noctalia.json.decode(raw)
     if type(data) == "table" and #data > 0 then
         attach_cached_thumbs(data)
         log("loaded " .. #data .. " tracks from cache for playlist " .. playlist_id)
@@ -74,7 +76,7 @@ function EXPO.load_cached_playlist(playlist_id)
     return nil
 end
 
-function EXPO.save_playlist_cache(playlist_id, tracks)
+function EXPO.save_playlist_cache(playlist_id, tracks: { types.Track })
     if type(playlist_id) ~= "string" or playlist_id == "" or type(tracks) ~= "table" or #tracks == 0 then return end
     local safe_id = playlist_id:gsub("[^%w%-_]", "_")
     local path = PLAYLISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
@@ -87,7 +89,7 @@ function EXPO.save_playlist_cache(playlist_id, tracks)
     end
 end
 
-function EXPO.load_session()
+function EXPO.load_session(): types.Player?
     if not noctalia.fileExists(SESSION_CACHE_PATH) then return nil end
     local raw = noctalia.readFile(SESSION_CACHE_PATH)
     if not raw or raw == "" then return nil end
@@ -102,7 +104,7 @@ function EXPO.load_session()
     return nil
 end
 
-function EXPO.save_session(player)
+function EXPO.save_session(player: types.Player)
     if type(player) ~= "table" then return end
     local session = {
         id = player.id or "",

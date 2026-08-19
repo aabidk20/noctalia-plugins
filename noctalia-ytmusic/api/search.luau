@@ -1,4 +1,5 @@
 --!strict
+--!nolint MultiLineStatement
 
 local logger = require("../log.luau")
 local function log(msg) logger.log("ytapi", msg) end
@@ -14,26 +15,28 @@ local CONTEXT = const.CONTEXT
 local it = require("./innerTube.luau")
 local innerTube = it.innerTube
 
+local types = require("../types.luau")
+
 local EXPO = {}
 
-function EXPO.search(query: string?, count: any, cb: (any?, string?) -> (), search_type: string?)
-    query = sanitize(query):gsub("^%s+", ""):gsub("%s+$", "")
+function EXPO.search(query: string?, count: any, cb: ({ types.SearchResult }?, string?) -> (), search_type: string?)
+    local q: string = tostring(sanitize(query)):gsub("^%s+", ""):gsub("%s+$", "")
     count = tonumber(count) or 25
-    search_type = tostring(search_type or "songs")
-    log("search query='" .. query .. "' type='" .. search_type .. "'")
-    if query == "" then
+    local st: string = tostring(search_type or "songs")
+    log("search query='" .. q .. "' type='" .. st .. "'")
+    if q == "" then
         cb({})
         return
     end
     local params = "EgWKAQIIAWoQChADEAQQCRAFEAoQBRAE"
-    if search_type == "playlists" then
+    if st == "playlists" then
         params = "EgWKAQIKAWoQChADEAQQCRAFEAoQBRAE"
-    elseif search_type == "top" then
+    elseif st == "top" then
         params = ""
     end
     innerTube("search", {
         context = CONTEXT.context,
-        query = query,
+        query = q,
         params = params,
     }, function(raw_body, err)
         if not raw_body or raw_body == "" then
@@ -45,7 +48,7 @@ function EXPO.search(query: string?, count: any, cb: (any?, string?) -> (), sear
         noctalia.writeFile(raw_file, raw_body)
 
         local script
-        if search_type == "top" then
+        if st == "top" then
             script = ([=[
 jq '
   ([.. | objects | select(has("musicCardShelfRenderer")) | .musicCardShelfRenderer] | .[0] // null) as $rawcard
@@ -88,7 +91,7 @@ jq '
 ' "%s" > "%s" 2>/dev/null
 echo "STATUS=OK"
 ]=]):format(raw_file, clean_file)
-        elseif search_type == "playlists" then
+        elseif st == "playlists" then
             script = ([=[
 jq '{
   playlists: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
@@ -117,14 +120,14 @@ echo "STATUS=OK"
         end
 
         noctalia.runAsync(script, function(res)
-            local out = {}
+            local out: { types.SearchResult } = {}
             if noctalia.fileExists(clean_file) then
                 local raw_clean = noctalia.readFile(clean_file)
                 local data = noctalia.json.decode(raw_clean or "")
-                local raw_key = (search_type == "playlists") and "playlists" or ((search_type == "top") and "results" or "tracks")
+                local raw_key = (st == "playlists") and "playlists" or ((st == "top") and "results" or "tracks")
                 local raw_items = (type(data) == "table" and type(data[raw_key]) == "table") and data[raw_key] or {}
                 for _, tr in ipairs(raw_items) do
-                    if search_type == "playlists" or (search_type == "top" and tr.kind == "playlist") then
+                    if st == "playlists" or (st == "top" and tr.kind == "playlist") then
                         table.insert(out, {
                             type = "playlist",
                             id = tr.id,
@@ -146,7 +149,7 @@ echo "STATUS=OK"
                     if #out >= count then break end
                 end
             end
-            log(string.format("search got %d results type='%s' first='%s'", #out, search_type, tostring(out[1] and out[1].title)))
+            log(string.format("search got %d results type='%s' first='%s'", #out, st, tostring(out[1] and out[1].title)))
             cb(out)
         end)
     end, true)

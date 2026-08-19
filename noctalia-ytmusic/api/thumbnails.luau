@@ -7,7 +7,7 @@ local THUMB_DIR = const.THUMB_DIR
 
 local EXPO = {}
 
-function EXPO.get_thumbnail_path(id, url, callback)
+function EXPO.get_thumbnail_path(id: string, url: string?, callback: ((string) -> ())?): string?
     if type(id) ~= "string" or id == "" then return nil end
     local safe_id = id:gsub("[^%w%-_]", "_")
     local path = THUMB_DIR .. "/" .. safe_id .. ".jpg"
@@ -99,7 +99,7 @@ echo "THUMBS_DONE=1"
     end, 15000)
 end
 
-function EXPO.attach_cached_thumbs(items)
+function EXPO.attach_cached_thumbs(items: { { [string]: any } })
     if type(items) ~= "table" then return end
     local count = #items
     if count > 50 then count = 50 end
