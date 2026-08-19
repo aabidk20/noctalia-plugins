@@ -2,6 +2,7 @@ local STATE = "noctalia_ytmusic.state"
 local REQ = "noctalia_ytmusic.request"
 
 local api = require("./api.luau")
+local Bash = require("./utils.luau").Bash
 
 local BROWSERS = {
     { id = "chrome", label = "Chrome" },
@@ -452,53 +453,13 @@ local function detect_browsers()
     end, 8000)
 end
 
-local MPV_PLAY = [=[
-PIDFILE="/tmp/noctalia-ytmusic-mpv.pid"
-SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
-URL=$(cat /tmp/noctalia-ytmusic-url.txt)
-TITLE=$(cat /tmp/noctalia-ytmusic-title.txt 2>/dev/null)
-if [ -f "$PIDFILE" ]; then
-  PREV=$(cat "$PIDFILE" 2>/dev/null)
-  [ -n "$PREV" ] && kill "$PREV" >/dev/null 2>&1
-  rm -f "$PIDFILE"
-fi
-pkill -f "input-ipc-server=$SOCK" >/dev/null 2>&1
-sleep 0.3
-rm -f "$SOCK"
-nohup mpv "$URL" --no-video --vo=null --vd=null --audio-display=no --no-osc --no-osd-bar \
-  --demuxer-max-bytes=20M --demuxer-readahead-secs=60 --really-quiet --no-terminal \
-  --keep-open=yes \
-  --force-media-title="$TITLE" \
-  --input-ipc-server="$SOCK" --ao=pipewire \
-  >/dev/null 2>&1 &
-echo $! > "$PIDFILE"
-for i in 1 2 3 4 5 6 7 8 9 10; do
-  [ -S "$SOCK" ] && printf '' | nc -U -N -w1 "$SOCK" >/dev/null 2>&1 && break
-  sleep 0.2
-done
-[ -S "$SOCK" ] && { 
-  echo "READY=1"
-  printf '{"command":["set_property","volume",VOLUME]}\n' | nc -U -N -w1 "$SOCK" >/dev/null 2>&1
-}
-]=]
-
 local function mpv_play(m3u8_url)
     noctalia.writeFile("/tmp/noctalia-ytmusic-url.txt", m3u8_url)
-    noctalia.runAsync(MPV_PLAY:gsub("VOLUME", tostring(state.player.volume or 100)), function() end, 10000)
+    Bash.run_script("mpv.sh", "mpv_play", function() end, 10000, tostring(state.player.volume or 100))
 end
 
 local function mpv_send(payload_json)
-    local script = ([[
-SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
-[ -S "$SOCK" ] || exit 0
-TMP=$(mktemp)
-cat <<'PAYLOAD' > "$TMP"
-%s
-PAYLOAD
-nc -U -N -w2 "$SOCK" < "$TMP" >/dev/null 2>&1
-rm -f "$TMP"
-]]):format(payload_json)
-    noctalia.runAsync(script, function() end, 5000)
+    Bash.run_script("mpv.sh", "mpv_send", function() end, 5000, payload_json)
 end
 
 
@@ -681,20 +642,8 @@ local function play_query(query)
     end)
 end
 
-local MPV_KILL = [=[
-PIDFILE="/tmp/noctalia-ytmusic-mpv.pid"
-SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
-if [ -f "$PIDFILE" ]; then
-  PREV=$(cat "$PIDFILE" 2>/dev/null)
-  [ -n "$PREV" ] && kill -9 "$PREV" >/dev/null 2>&1
-  rm -f "$PIDFILE"
-fi
-pkill -9 -f "input-ipc-server=$SOCK" >/dev/null 2>&1
-rm -f "$SOCK" /tmp/noctalia-ytmusic-url.txt
-]=]
-
 local function mpv_kill()
-    noctalia.runAsync(MPV_KILL, function() end, 2000)
+    Bash.run_script("mpv.sh", "mpv_kill", function() end, 2000)
 end
 
 local function stop_playback()
