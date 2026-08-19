@@ -206,11 +206,6 @@ local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> 
     end
 end
 
-EXPO.KEY = KEY
-EXPO.BASE = BASE
-EXPO.ORIGIN = ORIGIN
-EXPO.COOKIE_PATH = COOKIE_PATH
-EXPO.CONTEXT = const.CONTEXT
 EXPO.sha1 = sha1
 EXPO.build_auth = build_auth
 EXPO.innerTube = innerTube

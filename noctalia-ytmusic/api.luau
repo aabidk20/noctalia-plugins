@@ -2,14 +2,8 @@ local API = {}
 
 local utils = require("./utils.luau")
 
-local it = require("./api/innerTube.luau")
-local KEY = it.KEY
-local BASE = it.BASE
-local ORIGIN = it.ORIGIN
-local COOKIE_PATH = it.COOKIE_PATH
-local CONTEXT = it.CONTEXT
-local build_auth = it.build_auth
-local innerTube = it.innerTube
+local const = require("./api/constants.luau")
+local COOKIE_PATH = const.COOKIE_PATH
 
 -- ----------------------------------------------------------------------------
 -- helpers

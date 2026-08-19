@@ -8,9 +8,11 @@ local sanitize = utils.Utils.sanitize
 local clean_artist = utils.Utils.clean_artist
 local fmt_seconds = utils.Utils.fmt_seconds
 
+local const = require("./constants.luau")
+local CONTEXT = const.CONTEXT
+
 local it = require("./innerTube.luau")
 local innerTube = it.innerTube
-local CONTEXT = it.CONTEXT
 
 local EXPO = {}
 

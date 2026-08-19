@@ -12,11 +12,13 @@ local sanitize = utils.Utils.sanitize
 local clean_artist = utils.Utils.clean_artist
 local fmt_seconds = utils.Utils.fmt_seconds
 
+local const = require("./constants.luau")
+local CONTEXT = const.CONTEXT
+local ORIGIN = const.ORIGIN
+local COOKIE_PATH = const.COOKIE_PATH
+
 local it = require("./innerTube.luau")
-local CONTEXT = it.CONTEXT
 local build_auth = it.build_auth
-local ORIGIN = it.ORIGIN
-local COOKIE_PATH = it.COOKIE_PATH
 
 local XDG_CACHE = noctalia.getenv("XDG_CACHE_HOME")
 local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"

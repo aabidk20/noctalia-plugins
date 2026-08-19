@@ -8,11 +8,13 @@ local function log(msg) logger.log("ytapi", msg) end
 local utils = require("../utils.luau")
 local sanitize = utils.Utils.sanitize
 
+local const = require("./constants.luau")
+local CONTEXT = const.CONTEXT
+local ORIGIN = const.ORIGIN
+local COOKIE_PATH = const.COOKIE_PATH
+
 local it = require("./innerTube.luau")
-local CONTEXT = it.CONTEXT
 local build_auth = it.build_auth
-local ORIGIN = it.ORIGIN
-local COOKIE_PATH = it.COOKIE_PATH
 
 local EXPO = {}
 

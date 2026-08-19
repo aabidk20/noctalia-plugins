@@ -7,8 +7,8 @@
 local logger = require("../log.luau")
 local function log(msg) logger.log("ytapi", msg) end
 
-local it = require("./innerTube.luau")
-local COOKIE_PATH = it.COOKIE_PATH
+local const = require("./constants.luau")
+local COOKIE_PATH = const.COOKIE_PATH
 
 local STREAMS_CACHE_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/streams")
 
