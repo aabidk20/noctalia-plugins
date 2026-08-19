@@ -18,7 +18,6 @@ local innerTube = it.innerTube
 -- helpers
 -- ----------------------------------------------------------------------------
 
-local sanitize = utils.Utils.sanitize
 local fmt_duration = utils.Utils.fmt_duration
 local fmt_seconds = utils.Utils.fmt_seconds
 local clean_artist = utils.Utils.clean_artist
@@ -309,6 +308,10 @@ end
 
 -- search endpoint lives in ./api/search.luau
 API.search = require("./api/search.luau").search
+-- like/unlike endpoints live in ./api/likes.luau
+for k, v in pairs(require("./api/likes.luau")) do
+    API[k] = v
+end
 
 local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"
 local LIBRARY_CACHE_PATH = CACHE_DIR .. "/library.json"
@@ -692,81 +695,7 @@ function API.cookies_available(cb)
     cb(noctalia.fileExists(COOKIE_PATH))
 end
 
-function API.like_video(video_id, callback)
-    if type(video_id) ~= "string" or video_id == "" then
-        if callback then callback(false) end
-        return
-    end
-    local safe_id = sanitize(video_id)
-    local body_json = noctalia.json.encode({
-        context = CONTEXT.context,
-        target = { videoId = safe_id }
-    })
-    local auth, cookie = build_auth()
-    local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
-    local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
-    local tmp_payload = "/tmp/noctalia-ytmusic-like-payload.json"
-    noctalia.writeFile(tmp_payload, body_json)
-
-    local script = [=[
-export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-C_ARG=""
-if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
-  C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
-fi
-
-curl -s -X POST "https://music.youtube.com/youtubei/v1/like/like?prettyPrint=false" \
-  -H "Content-Type: application/json" \
-  ]=] .. origin_header .. [=[ \
-  ]=] .. auth_header .. [=[ \
-  $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-like-payload.json" >/dev/null 2>&1
-echo "STATUS=OK"
-]=]
-    noctalia.runAsync(script, function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        local ok = out:find("STATUS=OK") ~= nil
-        if callback then callback(ok) end
-    end, 10000)
-end
-
-function API.unlike_video(video_id, callback)
-    if type(video_id) ~= "string" or video_id == "" then
-        if callback then callback(false) end
-        return
-    end
-    local safe_id = sanitize(video_id)
-    local body_json = noctalia.json.encode({
-        context = CONTEXT.context,
-        target = { videoId = safe_id }
-    })
-    local auth, cookie = build_auth()
-    local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
-    local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
-    local tmp_payload = "/tmp/noctalia-ytmusic-unlike-payload.json"
-    noctalia.writeFile(tmp_payload, body_json)
-
-    local script = [=[
-export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-C_ARG=""
-if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
-  C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
-fi
-
-curl -s -X POST "https://music.youtube.com/youtubei/v1/like/removelike?prettyPrint=false" \
-  -H "Content-Type: application/json" \
-  ]=] .. origin_header .. [=[ \
-  ]=] .. auth_header .. [=[ \
-  $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-unlike-payload.json" >/dev/null 2>&1
-echo "STATUS=OK"
-]=]
-    noctalia.runAsync(script, function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        local ok = out:find("STATUS=OK") ~= nil
-        if callback then callback(ok) end
-    end, 10000)
-end
+-- like/unlike endpoints live in ./api/likes.luau
 
 function API.invalidate_playlist_cache(playlist_id)
     if type(playlist_id) ~= "string" or playlist_id == "" then return end
