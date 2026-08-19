@@ -52,6 +52,21 @@ mpv_kill() {
   rm -f "$SOCK" /tmp/noctalia-ytmusic-url.txt
 }
 
+mpv_poll() {
+  [ -S "$SOCK" ] || { echo "NOMPV=1"; exit 0; }
+  RES=$(printf '{"command":["get_property","time-pos"]}\n{"command":["get_property","duration"]}\n{"command":["get_property","pause"]}\n{"command":["get_property","audio-bitrate"]}\n{"command":["get_property","audio-codec-name"]}\n{"command":["get_property","audio-params/samplerate"]}\n{"command":["get_property","eof-reached"]}\n' | nc -U -N -w1 "$SOCK" 2>/dev/null)
+  [ -n "$RES" ] || exit 0
+  echo "$RES" | awk -F'"data":' '
+    NR==1 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "POS=" a[1] }
+    NR==2 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "DUR=" a[1] }
+    NR==3 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "PAUSE=" a[1] }
+    NR==4 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "BITRATE=" a[1] }
+    NR==5 && NF>1 { split($2,a,"[\",}]"); if (a[2] != "null") print "CODEC=" a[2] }
+    NR==6 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "RATE=" a[1] }
+    NR==7 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null" && a[1] == "true") print "eof-reached=true" }
+  '
+}
+
 fn="${1:?fn required}"; shift
 type -t "$fn" >/dev/null 2>&1 || { echo "unknown fn: $fn" >&2; exit 1; }
 "$fn" "$@"

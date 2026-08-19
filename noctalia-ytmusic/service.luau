@@ -463,23 +463,6 @@ local function mpv_send(payload_json)
 end
 
 
-local POLL_SCRIPT = [=[
-SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
-[ -S "$SOCK" ] || { echo "NOMPV=1"; exit 0; }
-RES=$(printf '{"command":["get_property","time-pos"]}\n{"command":["get_property","duration"]}\n{"command":["get_property","pause"]}\n{"command":["get_property","audio-bitrate"]}\n{"command":["get_property","audio-codec-name"]}\n{"command":["get_property","audio-params/samplerate"]}\n{"command":["get_property","eof-reached"]}\n' | nc -U -N -w1 "$SOCK" 2>/dev/null)
-[ -n "$RES" ] || exit 0
-echo "$RES" | awk -F'"data":' '
-  NR==1 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "POS=" a[1] }
-  NR==2 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "DUR=" a[1] }
-  NR==3 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "PAUSE=" a[1] }
-  NR==4 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "BITRATE=" a[1] }
-  NR==5 && NF>1 { split($2,a,"[\",}]"); if (a[2] != "null") print "CODEC=" a[2] }
-  NR==6 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "RATE=" a[1] }
-  NR==7 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null" && a[1] == "true") print "eof-reached=true" }
-'
-]=]
-
-
 local function player_set(item, stream_url)
     state.player.title = item.title or "Unknown track"
     state.player.artist = item.artist or ""
@@ -789,7 +772,7 @@ local function toggle_mute()
 end
 
 local function poll_player()
-    noctalia.runAsync(POLL_SCRIPT, function(res)
+    Bash.run_script("mpv.sh", "mpv_poll", function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         log("poll output: " .. out:gsub("\n", " "))
         if out:find("NOMPV=1") then
