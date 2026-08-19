@@ -212,67 +212,10 @@ local function browser_label(id)
     return id or "Browser"
 end
 
-local OPEN_SCRIPT = [=[
-open_browser() {
-  case "$1" in
-    chrome)   B="google-chrome"; command -v google-chrome-stable >/dev/null 2>&1 && B="google-chrome-stable" ;;
-    chromium) B="chromium" ;;
-    firefox)  B="firefox" ;;
-    edge)     B="microsoft-edge" ;;
-    brave)    B="brave-browser" ;;
-    opera)    B="opera" ;;
-    vivaldi)  B="vivaldi" ;;
-    whale)    B="whale" ;;
-    zen)      B="zen" ;;
-    *)        B="" ;;
-  esac
-  if [ -n "$B" ] && command -v "$B" >/dev/null 2>&1; then
-    "$B" "https://music.youtube.com" >/dev/null 2>&1 &
-  else
-    xdg-open "https://music.youtube.com" >/dev/null 2>&1 &
-  fi
-}
-]=]
-
 local function open_login(browser)
     local target = (type(browser) == "string" and browser ~= "") and browser or "default"
-    noctalia.runAsync(OPEN_SCRIPT .. "\nopen_browser " .. target, function() end, 5000)
+    Bash.run_script("cookies.sh", "open_browser", function() end, 5000, target)
 end
-
-local ZEN_CFB = [=[
-ZEN_P=$(awk -F= '/^Path=/{p=substr($0,6)} /^Default=1/{print p; exit}' "$HOME/.zen/profiles.ini" 2>/dev/null)
-if [ -z "$ZEN_P" ]; then
-  for d in "$HOME/.zen"/*/; do
-    [ -d "$d" ] && [ -f "${d}places.sqlite" ] && { ZEN_P=$(basename "$d"); break; }
-  done
-fi
-case "$ZEN_P" in
-  /*) CFB="firefox:$ZEN_P" ;;
-  *)  CFB="firefox:$HOME/.zen/$ZEN_P" ;;
-esac
-]=]
-
-local EXTRACT_SCRIPT = [=[
-export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-TMPD=$(mktemp -d /tmp/noctalia-ytmusic.XXXXXX 2>/dev/null)
-[ -n "$TMPD" ] || { TMPD=/tmp/noctalia-ytmusic; mkdir -p "$TMPD"; }
-RAW="$TMPD/raw_BROWSER.txt"
-OUT_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic"
-mkdir -p "$OUT_DIR"
-OUT="$OUT_DIR/cookies.txt"
-CFB_ARG
-LOG=$(timeout 45 yt-dlp --cookies-from-browser "$CFB" --cookies "$RAW" --skip-download --no-warnings --no-playlist "https://music.youtube.com" 2>&1 | tr '\n' ' ')
-grep -iE '^#|(youtube\.com|youtu\.be|youtube-nocookie\.com|ytimg\.com|googlevideo\.com|yt\.be|youtubeeducation\.com)' "$RAW" > "$OUT" 2>/dev/null
-TOTAL=$(grep -vc '^#' "$RAW" 2>/dev/null || echo 0)
-KEPT=$(grep -vc '^#' "$OUT" 2>/dev/null || echo 0)
-rm -rf "$TMPD"
-echo "DIR=$OUT_DIR"
-echo "RAW=$RAW"
-echo "OUT=$OUT"
-echo "TOTAL=$TOTAL"
-echo "KEPT=$KEPT"
-echo "LOG=$LOG"
-]=]
 
 local function fetch_home_thumbs()
     if not (api and api.ensure_thumbnails) then return end
@@ -303,13 +246,9 @@ local function extract_cookies(browser)
     state.last_error = ""
     publish()
 
-    local cfb_line = 'CFB="' .. browser .. '"'
-    if browser == "zen" then
-        cfb_line = ZEN_CFB
-    end
-    local cmd = (EXTRACT_SCRIPT:gsub("BROWSER", browser):gsub("CFB_ARG", cfb_line))
-    noctalia.runAsync(cmd, function(res)
+    Bash.run_script("cookies.sh", "extract_cookies", function(res)
         local out = (type(res) == "table" and res.stdout) or ""
+        log("extract: browser=" .. tostring(browser) .. " out=" .. tostring(out:sub(1, 200)))
         local dir = out:match("DIR=([^\n]+)") or ""
         local cookies = out:match("OUT=([^\n]+)") or ""
         local total = tonumber(out:match("TOTAL=([^\n]+)") or "0") or 0
@@ -358,24 +297,8 @@ local function extract_cookies(browser)
             end
         end
         publish()
-    end, 60000)
+    end, 60000, browser)
 end
-
-local LOAD_CACHE_SCRIPT = [=[
-OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
-if [ -s "$OUT" ]; then
-  KEPT=$(grep -vc '^#' "$OUT" 2>/dev/null || echo 0)
-  if [ "$KEPT" -gt 0 ]; then
-    echo "FOUND=1"
-    echo "KEPT=$KEPT"
-    echo "OUT=$OUT"
-  else
-    echo "FOUND=0"
-  fi
-else
-  echo "FOUND=0"
-fi
-]=]
 
 local function sync_liked_tracks(tracks)
     if type(tracks) ~= "table" then return end
@@ -387,7 +310,7 @@ local function sync_liked_tracks(tracks)
 end
 
 local function load_cached_cookies()
-    noctalia.runAsync(LOAD_CACHE_SCRIPT, function(res)
+    Bash.run_script("cookies.sh", "load_cached_cookies", function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         if out:find("FOUND=1") then
             local kept = tonumber(out:match("KEPT=([^\n]+)") or "0") or 0
@@ -427,22 +350,8 @@ local function load_cached_cookies()
     end, 8000)
 end
 
-local DETECT_SCRIPT = [=[
-check() { [ -d "$1" ] && echo "FOUND=$2"; }
-check "$HOME/.config/google-chrome" chrome
-check "$HOME/.config/chromium" chromium
-check "$HOME/.mozilla/firefox" firefox
-check "$HOME/.config/microsoft-edge" edge
-check "$HOME/.config/BraveSoftware/Brave-Browser" brave
-check "$HOME/.config/opera" opera
-check "$HOME/.config/vivaldi" vivaldi
-check "$HOME/.config/whale" whale
-check "$HOME/.zen" zen
-echo "DONE=1"
-]=]
-
 local function detect_browsers()
-    noctalia.runAsync(DETECT_SCRIPT, function(res)
+    Bash.run_script("cookies.sh", "detect_browsers", function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local available = {}
         for found in out:gmatch("FOUND=([^\n]+)") do
