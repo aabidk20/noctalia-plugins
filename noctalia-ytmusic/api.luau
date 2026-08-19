@@ -1,8 +1,5 @@
 local API = {}
 
-local logger = require("./log.luau")
-local function log(msg) logger.log("ytapi", msg) end
-
 local utils = require("./utils.luau")
 
 local it = require("./api/innerTube.luau")
@@ -312,118 +309,9 @@ API.search = require("./api/search.luau").search
 for k, v in pairs(require("./api/likes.luau")) do
     API[k] = v
 end
-
-local CACHE_DIR = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic"
-local LIBRARY_CACHE_PATH = CACHE_DIR .. "/library.json"
-local RECENT_PLAYLISTS_CACHE_PATH = CACHE_DIR .. "/recent_playlists.json"
-local PLAYLISTS_CACHE_DIR = CACHE_DIR .. "/playlists"
-
-function API.load_cached_recent_playlists()
-    if not noctalia.fileExists(RECENT_PLAYLISTS_CACHE_PATH) then return nil end
-    local raw = noctalia.readFile(RECENT_PLAYLISTS_CACHE_PATH)
-    if not raw or raw == "" then return nil end
-    local data, _ = noctalia.json.decode(raw)
-    if type(data) == "table" and #data > 0 then
-        return data
-    end
-    return nil
-end
-
-function API.save_recent_playlists_cache(playlists)
-    if type(playlists) ~= "table" or #playlists == 0 then return end
-    local encoded = noctalia.json.encode(playlists)
-    if encoded then
-        noctalia.writeFile(RECENT_PLAYLISTS_CACHE_PATH, encoded)
-        log("saved " .. #playlists .. " playlists to recent_playlists cache")
-    end
-end
-
-function API.load_cached_library()
-    if not noctalia.fileExists(LIBRARY_CACHE_PATH) then return nil end
-    local raw = noctalia.readFile(LIBRARY_CACHE_PATH)
-    if not raw or raw == "" then return nil end
-    local data, jerr = noctalia.json.decode(raw)
-    if type(data) == "table" and #data > 0 then
-        API.attach_cached_thumbs(data)
-        log("loaded " .. #data .. " playlists from library cache")
-        return data
-    end
-    return nil
-end
-
-function API.save_library_cache(playlists)
-    if type(playlists) ~= "table" or #playlists == 0 then return end
-    local encoded = noctalia.json.encode(playlists)
-    if encoded then
-        noctalia.writeFile(LIBRARY_CACHE_PATH, encoded)
-        log("saved " .. #playlists .. " playlists to library cache")
-    end
-end
-
-function API.load_cached_playlist(playlist_id)
-    if type(playlist_id) ~= "string" or playlist_id == "" then return nil end
-    local safe_id = playlist_id:gsub("[^%w%-_]", "_")
-    local path = PLAYLISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
-    if not noctalia.fileExists(path) then return nil end
-    local raw = noctalia.readFile(path)
-    if not raw or raw == "" then return nil end
-    local data, jerr = noctalia.json.decode(raw)
-    if type(data) == "table" and #data > 0 then
-        API.attach_cached_thumbs(data)
-        log("loaded " .. #data .. " tracks from cache for playlist " .. playlist_id)
-        return data
-    end
-    return nil
-end
-
-function API.save_playlist_cache(playlist_id, tracks)
-    if type(playlist_id) ~= "string" or playlist_id == "" or type(tracks) ~= "table" or #tracks == 0 then return end
-    local safe_id = playlist_id:gsub("[^%w%-_]", "_")
-    local path = PLAYLISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
-    local encoded = noctalia.json.encode(tracks)
-    if encoded then
-        noctalia.runAsync("mkdir -p '" .. PLAYLISTS_CACHE_DIR .. "'", function()
-            noctalia.writeFile(path, encoded)
-            log("saved " .. #tracks .. " tracks to cache for playlist " .. playlist_id)
-        end, 5000)
-    end
-end
-
-local SESSION_CACHE_PATH = CACHE_DIR .. "/session.json"
-
-function API.load_session()
-    if not noctalia.fileExists(SESSION_CACHE_PATH) then return nil end
-    local raw = noctalia.readFile(SESSION_CACHE_PATH)
-    if not raw or raw == "" then return nil end
-    local data = noctalia.json.decode(raw)
-    if type(data) == "table" then
-        if type(data.queue) == "table" then
-            API.attach_cached_thumbs(data.queue)
-        end
-        log("loaded session: title='" .. tostring(data.title) .. "' index=" .. tostring(data.index))
-        return data
-    end
-    return nil
-end
-
-function API.save_session(player)
-    if type(player) ~= "table" then return end
-    local session = {
-        id = player.id or "",
-        title = player.title or "",
-        artist = player.artist or "",
-        thumbnail_url = player.thumbnail_url or "",
-        thumb_path = player.thumb_path or "",
-        duration = player.duration or 0,
-        position = player.position or 0,
-        volume = player.volume or 70,
-        index = player.index or 0,
-        queue = player.queue or {}
-    }
-    local encoded = noctalia.json.encode(session)
-    if encoded then
-        noctalia.writeFile(SESSION_CACHE_PATH, encoded)
-    end
+-- on-disk cache read/write lives in ./api/cache.luau
+for k, v in pairs(require("./api/cache.luau")(API)) do
+    API[k] = v
 end
 
 -- browse/home/library endpoints live in ./api/browse.luau
@@ -440,14 +328,6 @@ function API.cookies_available(cb)
 end
 
 -- like/unlike endpoints live in ./api/likes.luau
-
-function API.invalidate_playlist_cache(playlist_id)
-    if type(playlist_id) ~= "string" or playlist_id == "" then return end
-    local safe_id = playlist_id:gsub("[^%w%-_]", "_")
-    local path = PLAYLISTS_CACHE_DIR .. "/" .. safe_id .. ".json"
-    local script = string.format("rm -f '%s'", path)
-    noctalia.runAsync(script, function() end, 2000)
-end
 
 
 return API
