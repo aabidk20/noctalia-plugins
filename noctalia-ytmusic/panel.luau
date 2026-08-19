@@ -173,16 +173,6 @@ local function play_playlist(pl)
     request("play_playlist", { id = pl.id, title = pl.title })
 end
 
-local function play_query(query)
-    content_page = "discover"
-    search_query = query
-    state.search.query = query
-    state.search.pending = true
-    state.search.results = {}
-    request("play_query", { query = query })
-    render_panel()
-end
-
 local function request_extract(id)
     request("extract", { browser = id })
 end
@@ -897,11 +887,7 @@ width = 54,
                 flexGrow = 1,
                 onClick = function()
                     hovered_card_key = nil
-                    if mix.id and mix.id ~= "" then
-                        open_playlist({ id = mix.id, title = item_title })
-                    else
-                        play_query(item_title .. " mix")
-                    end
+                    open_playlist({ id = mix.id, title = item_title })
                 end,
                 onHover = "onCardHover"
             }, {

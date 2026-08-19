@@ -454,29 +454,6 @@ local function play_next(item)
     end
 end
 
-local function play_query(query)
-    if type(query) ~= "string" or query == "" then return end
-    log("play_query: '" .. query .. "'")
-    state.search.pending = true
-    state.search.query = query
-    state.player.status = state.player.status == "stopped" and "stopped" or state.player.status
-    publish()
-    api.search(query, 25, function(results)
-        state.search.pending = false
-        state.search.results = results or {}
-        state.search.query = query
-        if results and #results > 0 then
-            log("play_query: got " .. #results .. " results, playing first")
-            play_index(1, results)
-        else
-            state.search.results = {}
-            state.status_text = "No results for \"" .. query .. "\""
-            publish()
-            log("play_query: no results")
-        end
-    end)
-end
-
 local function mpv_kill()
     Bash.run_script("mpv.sh", "mpv_kill", function() end, 2000)
 end
