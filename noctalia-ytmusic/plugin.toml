@@ -1,7 +1,7 @@
 id = "aabidk20/noctalia-ytmusic"
 name = "Noctalia YT Music"
 version = "0.1.4"
-plugin_api = 22
+plugin_api = 23
 author = "Aabid"
 description = "YouTube Music client for Noctalia v5 - miniplayer & full view"
 tags = ["ytmusic", "music"]

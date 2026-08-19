@@ -5,6 +5,8 @@ local bit = bit32
 local logger = require("./log.luau")
 local function log(msg) logger.log("ytapi", msg) end
 
+local utils = require("./utils.luau")
+
 local KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
 local CLIENT_VERSION = "1.20240813.01.00"
 local BASE = "https://music.youtube.com/youtubei/v1/"
@@ -96,17 +98,8 @@ end
 -- helpers
 -- ----------------------------------------------------------------------------
 
-local function sanitize(s)
-    s = tostring(s or "")
-    return s:gsub("[\r\n]", "")
-end
-
-local function fmt_duration(secs)
-    secs = tonumber(secs) or 0
-    local m = math.floor(secs / 60)
-    local s = secs % 60
-    return string.format("%d:%02d", m, s)
-end
+local sanitize = utils.Utils.sanitize
+local fmt_duration = utils.Utils.fmt_duration
 
 local function fmt_seconds(text)
     text = tostring(text or "")
@@ -121,20 +114,7 @@ local function fmt_seconds(text)
     return 0
 end
 
-local function clean_artist(meta)
-    meta = tostring(meta or "")
-    meta = meta:gsub("%s*•%s*[%d.,]+[KMB]?%s*views.*$", "")
-    meta = meta:gsub("%s*•%s*%d+:?%d*$", "")
-    local parts = {}
-    for part in (meta .. " • "):gmatch("([^•]+) • ") do
-        local p = part:gsub("^%s+", ""):gsub("%s+$", "")
-        if p ~= "Song" and p ~= "Video" and p ~= "Episode" and p ~= "" then
-            table.insert(parts, p)
-        end
-    end
-    if #parts > 0 then return parts[1] end
-    return (meta:gsub("^%s+", ""):gsub("%s+$", ""))
-end
+local clean_artist = utils.Utils.clean_artist
 
 local function runs_text(runs)
     if type(runs) ~= "table" then return "" end
@@ -239,21 +219,7 @@ end
 
 local THUMB_DIR = noctalia.expandPath("~/.cache/noctalia-ytmusic/thumbnails")
 
-local function extract_thumb_url(node)
-    if type(node) ~= "table" then return nil end
-    local th = node.thumbnail or node.thumbnailRenderer
-    if type(th) == "table" then
-        local tr = th.musicThumbnailRenderer or th
-        local t_list = type(tr) == "table" and (tr.thumbnail and tr.thumbnail.thumbnails or tr.thumbnails) or nil
-        if type(t_list) == "table" and #t_list > 0 then
-            local last = t_list[#t_list]
-            if type(last) == "table" and type(last.url) == "string" and last.url ~= "" then
-                return last.url
-            end
-        end
-    end
-    return nil
-end
+local extract_thumb_url = utils.Utils.extract_thumb_url
 
 function API.get_thumbnail_path(id, url, callback)
     if type(id) ~= "string" or id == "" then return nil end
