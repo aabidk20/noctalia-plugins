@@ -50,6 +50,19 @@ function Utils.fmt_duration(secs)
     return string.format("%d:%02d", m, s)
 end
 
+function Utils.fmt_seconds(text)
+    text = tostring(text or "")
+    local h, m, s = text:match("(%d+):(%d%d):(%d%d)")
+    if h then
+        return tonumber(h) * 3600 + tonumber(m) * 60 + tonumber(s)
+    end
+    local mm, ss = text:match("(%d+):(%d%d)")
+    if mm then
+        return tonumber(mm) * 60 + tonumber(ss)
+    end
+    return 0
+end
+
 function Utils.clean_artist(meta)
     meta = tostring(meta or "")
     meta = meta:gsub("%s*•%s*[%d.,]+[KMB]?%s*views.*$", "")
