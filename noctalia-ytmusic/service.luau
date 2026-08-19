@@ -1,73 +1,16 @@
-local STATE = "noctalia_ytmusic.state"
-local REQ = "noctalia_ytmusic.request"
+local STATE_KEY = "noctalia_ytmusic.state"
+local REQ_KEY = "noctalia_ytmusic.request"
 
 local api = require("./api.luau")
 local Bash = require("./utils.luau").Bash
+local state = require("./state.luau").new()
+state.player.volume = 100
 
-local BROWSERS = {
-    { id = "chrome", label = "Chrome" },
-    { id = "chromium", label = "Chromium" },
-    { id = "firefox", label = "Firefox" },
-    { id = "edge", label = "Edge" },
-    { id = "brave", label = "Brave" },
-    { id = "opera", label = "Opera" },
-    { id = "vivaldi", label = "Vivaldi" },
-    { id = "whale", label = "Whale" },
-    { id = "zen", label = "Zen" }
-}
+local BROWSERS = require("./browsers.luau")
 
 local handled_nonce = 0
 local extraction_active = false
 local playlist_wants_play = false
-
-local state = {
-    status = "idle",
-    status_text = "Not logged in",
-    browser = nil,
-    browser_label = "",
-    temp_dir = "",
-    cookies_path = "",
-    cookie_count = 0,
-    available = {},
-    extracting = false,
-    last_error = "",
-    player = {
-        status = "stopped",
-        title = "",
-        artist = "",
-        id = "",
-        position = 0,
-        duration = 0,
-        volume = 100,
-        queue = {},
-        index = 0,
-        shuffle = false,
-        repeat_mode = "off"
-    },
-    search = {
-        query = "",
-        type = "top",
-        results = {},
-        pending = false
-    },
-    cache_stats = {},
-    settings = {
-        autoplay = true
-    },
-    library = {},
-    playlist = {
-        id = "",
-        title = "",
-        tracks = {}
-    },
-    recent_playlists = {},
-    liked_ids = {},
-    cached_audio_ids = {},
-    downloaded_playlist_ids = {},
-    downloading_playlist_ids = {},
-    quick_picks = {},
-    home_mixes = {}
-}
 
 local publish
 local audit_downloaded_playlists
@@ -128,7 +71,7 @@ publish = function()
     snap.recent_playlists = state.recent_playlists
     snap.cache_stats = state.cache_stats
     snap.settings = state.settings
-    noctalia.state.set(STATE, snap)
+    noctalia.state.set(STATE_KEY, snap)
 end
 
 local logger = require("./log.luau")
@@ -752,7 +695,7 @@ local function poll_player()
     end, 6000)
 end
 
-noctalia.state.watch(REQ, function(req)
+noctalia.state.watch(REQ_KEY, function(req)
     if type(req) ~= "table" or not req.nonce or req.nonce <= handled_nonce then return end
     handled_nonce = req.nonce
     log("request nonce=" .. req.nonce .. " action=" .. tostring(req.action))

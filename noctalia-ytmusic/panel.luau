@@ -1,58 +1,18 @@
-local STATE = "noctalia_ytmusic.state"
+local STATE_KEY = "noctalia_ytmusic.state"
 
-local REQ = "noctalia_ytmusic.request"
+local REQ_KEY = "noctalia_ytmusic.request"
 local theme = require("./theme.luau")
+local state = require("./state.luau").new()
 
 local req_nonce = os.time() * 1000
 
-local BROWSERS = {
-    { id = "chrome", label = "Chrome", icon = "brand-chrome" },
-    { id = "chromium", label = "Chromium", icon = "device-desktop" },
-    { id = "firefox", label = "Firefox", icon = "flame" },
-    { id = "edge", label = "Edge", icon = "wind" },
-    { id = "brave", label = "Brave", icon = "shield" },
-    { id = "opera", label = "Opera", icon = "circle" },
-    { id = "vivaldi", label = "Vivaldi", icon = "triangle" },
-    { id = "whale", label = "Whale", icon = "droplet" },
-    { id = "zen", label = "Zen", icon = "activity" }
-}
+local BROWSERS = require("./browsers.luau")
 
 local NAV_ITEMS = {
     { id = "home", label = "For you", icon = "home" },
     { id = "discover", label = "Search", icon = "search" },
     { id = "queue", label = "Queue", icon = "library" },
     { id = "settings", label = "Settings", icon = "settings" }
-}
-
-local state = {
-    status = "idle",
-    status_text = "Not logged in",
-    browser = nil,
-    browser_label = "",
-    cookie_count = 0,
-    available = {},
-    extracting = false,
-    last_error = "",
-    player = {
-        status = "stopped",
-        title = "",
-        artist = "",
-        id = "",
-        position = 0,
-        duration = 0,
-        volume = 70,
-        queue = {},
-        index = 0
-    },
-    search = { query = "", type = "top", results = {}, pending = false },
-    library = {},
-    recent_playlists = {},
-    playlist = { id = "", title = "", tracks = {} },
-    quick_picks = {},
-    home_mixes = {},
-    downloading_playlist_ids = {},
-    cache_stats = {},
-    settings = { autoplay = true }
 }
 
 local content_page = "home"
@@ -67,7 +27,7 @@ local function request(action, payload)
     for k, v in pairs(payload or {}) do
         msg[k] = v
     end
-    noctalia.state.set(REQ, msg)
+    noctalia.state.set(REQ_KEY, msg)
 end
 
 local function logged_in()
@@ -322,20 +282,6 @@ function onSidebarHover(hover_state, key)
     else
         if hovered_sidebar_key ~= nil then
             hovered_sidebar_key = nil
-            render_panel()
-        end
-    end
-end
-
-function onTrackHover(hover_state, key)
-    if hover_state == "true" then
-        if hovered_track_key ~= key then
-            hovered_track_key = key
-            render_panel()
-        end
-    else
-        if hovered_track_key ~= nil then
-            hovered_track_key = nil
             render_panel()
         end
     end
@@ -1691,13 +1637,13 @@ local function apply_state(s)
 end
 
 function onOpen(_context)
-    local curr = noctalia.state.get(STATE)
+    local curr = noctalia.state.get(STATE_KEY)
     if curr then apply_state(curr) end
 end
 
 if noctalia.state and noctalia.state.watch then
-    noctalia.state.watch(STATE, apply_state)
-    local curr = noctalia.state.get(STATE)
+    noctalia.state.watch(STATE_KEY, apply_state)
+    local curr = noctalia.state.get(STATE_KEY)
     if curr then apply_state(curr) end
 end
 
