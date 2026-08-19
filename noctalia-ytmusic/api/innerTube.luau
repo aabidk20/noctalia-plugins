@@ -11,15 +11,13 @@ local bit = bit32
 local logger = require("../log.luau")
 local function log(msg) logger.log("ytapi", msg) end
 
+local const = require("./constants.luau")
+local KEY = const.KEY
+local BASE = const.BASE
+local ORIGIN = const.ORIGIN
+local COOKIE_PATH = const.COOKIE_PATH
+
 local EXPO = {}
-
-local KEY = "AIzaSyC9XL3ZjWddXya6X74dJoCTL-WEYFDNX30"
-local CLIENT_VERSION = "1.20240813.01.00"
-local BASE = "https://music.youtube.com/youtubei/v1/"
-local ORIGIN = "https://music.youtube.com"
-
-local XDG_CACHE = noctalia.getenv("XDG_CACHE_HOME")
-local COOKIE_PATH = noctalia.expandPath(XDG_CACHE and XDG_CACHE ~= "" and XDG_CACHE or "~/.cache") .. "/noctalia-ytmusic/cookies.txt"
 
 -- ----------------------------------------------------------------------------
 -- Pure-Luau SHA-1 (FIPS 180-1), uint32 math via bit32
@@ -209,19 +207,10 @@ local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> 
 end
 
 EXPO.KEY = KEY
-EXPO.CLIENT_VERSION = CLIENT_VERSION
 EXPO.BASE = BASE
 EXPO.ORIGIN = ORIGIN
 EXPO.COOKIE_PATH = COOKIE_PATH
-EXPO.CONTEXT = {
-    context = {
-        client = {
-            clientName = "WEB_REMIX",
-            clientVersion = CLIENT_VERSION,
-            hl = "en",
-        },
-    },
-}
+EXPO.CONTEXT = const.CONTEXT
 EXPO.sha1 = sha1
 EXPO.build_auth = build_auth
 EXPO.innerTube = innerTube
