@@ -9,6 +9,7 @@ local function build_home()
     local view = state.view
     local feed = {}
 
+    local is_refreshing = (data.refreshing_quick_picks == true)
     table.insert(feed, ui.row({ key = "qp-header", align = "center", justify = "space_between" }, {
         ui.row({ align = "center", gap = 8 }, {
             ui.glyph({ name = "sparkles", size = 18, color = "primary" }),
@@ -19,11 +20,11 @@ local function build_home()
         }),
         ui.button({
             key = "btn-sync-qp",
-            glyph = "refresh",
+            glyph = is_refreshing and "loader" or "refresh",
             variant = "ghost",
             controlSize = "sm",
-            tooltip = "Refresh Quick Picks",
-            onClick = function() request("refresh_quick_picks") end
+            tooltip = is_refreshing and "Refreshing Quick Picks..." or "Refresh Quick Picks",
+            onClick = is_refreshing and nil or function() request("refresh_quick_picks") end
         })
     }))
 

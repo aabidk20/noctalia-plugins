@@ -7,7 +7,11 @@ local Home = {}
 
 function Home.refresh_quick_picks()
     if not (api and api.fetch_quick_picks) then return end
+    if state.refreshing_quick_picks then return end
+    state.refreshing_quick_picks = true
+    store.publish()
     api.fetch_quick_picks(function(qp, mixes)
+        state.refreshing_quick_picks = false
         if type(qp) == "table" and #qp > 0 then
             state.quick_picks = qp
         end

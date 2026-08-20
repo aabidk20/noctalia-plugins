@@ -34,6 +34,7 @@ local function new()
         downloaded_playlist_ids = {},
         downloading_playlist_ids = {},
         quick_picks = {},
+        refreshing_quick_picks = false,
         home_mixes = {},
         cache_stats = {},
         settings = { autoplay = true },
