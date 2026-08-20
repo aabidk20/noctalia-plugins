@@ -3,7 +3,7 @@
 -- stream resolution, audio download/cache, track stats, prefetch.
 
 local logger = require("../log.luau")
-local function log(msg) logger.log("ytapi", msg) end
+local log = logger.module("ytapi", "resolve")
 
 local const = require("./constants.luau")
 local COOKIE_PATH = const.COOKIE_PATH

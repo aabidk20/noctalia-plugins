@@ -3,7 +3,7 @@
 -- browse/home/library endpoints + parse.
 
 local logger = require("../log.luau")
-local function log(msg) logger.log("ytapi", msg) end
+local log = logger.module("ytapi", "browse")
 
 local utils = require("../utils.luau")
 local sanitize = utils.Utils.sanitize

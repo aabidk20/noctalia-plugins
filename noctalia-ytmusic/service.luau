@@ -1,676 +1,22 @@
-local STATE_KEY = "noctalia_ytmusic.state"
 local REQ_KEY = "noctalia_ytmusic.request"
 
 local api = require("./api.luau")
-local Bash = require("./utils.luau").Bash
-local state = require("./state.luau").new()
-state.player.volume = 100
-
-local BROWSERS = require("./browsers.luau")
+local store = require("./modules/store.luau")
+local state = store.state
 
 local handled_nonce = 0
-local extraction_active = false
-local playlist_wants_play = false
-
-local publish
-local audit_downloaded_playlists
-
-local function sync_audio_cache()
-    if api and api.get_cached_audio_ids then
-        api.get_cached_audio_ids(function(set)
-            if type(set) == "table" then
-                state.cached_audio_ids = set
-                audit_downloaded_playlists()
-                publish()
-            end
-        end)
-    end
-end
-
-audit_downloaded_playlists = function()
-    if not api or not api.load_cached_playlist then return end
-    state.downloaded_playlist_ids = {}
-    for _, pl in ipairs(state.library) do
-        local pid = tostring(pl.id or "")
-        if pid ~= "" then
-            local tracks = api.load_cached_playlist(pid)
-            if tracks and #tracks > 0 and type(state.cached_audio_ids) == "table" then
-                local all_dl = true
-                for _, tr in ipairs(tracks) do
-                    if tr.id and not state.cached_audio_ids[tr.id] then
-                        all_dl = false
-                        break
-                    end
-                end
-                if all_dl then
-                    state.downloaded_playlist_ids[pid] = true
-                end
-            end
-        end
-    end
-end
-
-publish = function()
-    local snap = {}
-    for k, v in pairs(state) do snap[k] = v end
-    -- Only shallow-copy the actively-mutated tables (player, playlist)
-    if type(state.player) == "table" then
-        snap.player = {}
-        for k, v in pairs(state.player) do snap.player[k] = v end
-    end
-    if type(state.playlist) == "table" then
-        snap.playlist = {}
-        for k, v in pairs(state.playlist) do snap.playlist[k] = v end
-    end
-    -- Pass direct references for large, rarely-changing lookup tables
-    snap.liked_ids = state.liked_ids
-    snap.cached_audio_ids = state.cached_audio_ids
-    snap.downloaded_playlist_ids = state.downloaded_playlist_ids
-    snap.quick_picks = state.quick_picks
-    snap.home_mixes = state.home_mixes
-    snap.recent_playlists = state.recent_playlists
-    snap.cache_stats = state.cache_stats
-    snap.settings = state.settings
-    noctalia.state.set(STATE_KEY, snap)
-end
 
 local logger = require("./log.luau")
-local function log(msg) logger.log("ytm", msg) end
+local log = logger.module("ytm", "service")
 
--- Audio download queue: bounded concurrency so we never exceed the host's
--- per-host async command cap (8) or hammer yt-dlp/YouTube in parallel.
--- dl_active stays well under the cap, leaving slots for polls/thumbnails/streams.
--- Each queued item remembers its source playlist so downloading_playlist_ids
--- can be tracked accurately and published once per playlist completion.
-local DL_CONCURRENCY = 2
-local dl_queue = {}         -- { plid = <playlist id or "">, id = <video id> }
-local dl_inflight = {}      -- video id -> plid
-local dl_active = 0
-local dl_pending = {}       -- plid -> number of queue entries waiting/done once
-
-local function pl_done(plid)
-    local inflight = false
-    for vid, pid in pairs(dl_inflight) do
-        if pid == plid then inflight = true break end
-    end
-    dl_pending[plid] = nil
-    return not inflight
-end
-
-local function unlock_playlist(plid)
-    state.downloading_playlist_ids[plid] = nil
-    audit_downloaded_playlists()
-    publish()
-end
-
-local function pump()
-    while #dl_queue > 0 and dl_active < DL_CONCURRENCY do
-        local item = table.remove(dl_queue, 1)
-        local plid = item.plid or ""
-        local id = item.id
-        dl_pending[plid] = (dl_pending[plid] or 1) - 1
-        if dl_pending[plid] < 0 then dl_pending[plid] = 0 end
-        if id and id ~= "" and not dl_inflight[id] and not state.cached_audio_ids[id] then
-            dl_inflight[id] = plid
-            dl_active = dl_active + 1
-            api.cache_audio(id, function(ok)
-                dl_active = dl_active - 1
-                dl_inflight[id] = nil
-                if ok then
-                    state.cached_audio_ids[id] = true
-                else
-                    log("download: failed for id=" .. tostring(id))
-                end
-                if pl_done(plid) then
-                    if plid ~= "" then
-                        unlock_playlist(plid)
-                    elseif dl_active == 0 and #dl_queue == 0 then
-                        audit_downloaded_playlists()
-                        publish()
-                    end
-                end
-                pump()
-            end)
-        end
-    end
-end
-
-local function enqueue_download(id, plid)
-    if not id or id == "" or dl_inflight[id] or state.cached_audio_ids[id] then
-        return
-    end
-    local pid = plid or ""
-    table.insert(dl_queue, { plid = pid, id = id })
-    dl_pending[pid] = (dl_pending[pid] or 0) + 1
-    if pid ~= "" then
-        state.downloading_playlist_ids[pid] = true
-    end
-    pump()
-end
-
-local function browser_label(id)
-    for _, b in ipairs(BROWSERS) do
-        if b.id == id then return b.label end
-    end
-    return id or "Browser"
-end
-
-local function open_login(browser)
-    local target = (type(browser) == "string" and browser ~= "") and browser or "default"
-    Bash.run_script("cookies.sh", "open_browser", function() end, 5000, target)
-end
-
-local function fetch_home_thumbs()
-    if not (api and api.ensure_thumbnails) then return end
-    local combined = {}
-    if type(state.quick_picks) == "table" then
-        for _, item in ipairs(state.quick_picks) do table.insert(combined, item) end
-    end
-    if type(state.home_mixes) == "table" then
-        for _, item in ipairs(state.home_mixes) do table.insert(combined, item) end
-    end
-    if #combined > 0 then
-        noctalia.runAsync("true", function()
-            api.ensure_thumbnails(combined, publish, "home")
-        end)
-    end
-end
-
-local function extract_cookies(browser)
-    if extraction_active then return end
-    if type(browser) ~= "string" or browser == "" then return end
-    local label = browser_label(browser)
-    extraction_active = true
-    state.extracting = true
-    state.browser = browser
-    state.browser_label = label
-    state.status = "extracting"
-    state.status_text = "Extracting cookies from " .. label .. "..."
-    state.last_error = ""
-    publish()
-
-    Bash.run_script("cookies.sh", "extract_cookies", function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        log("extract: browser=" .. tostring(browser) .. " out=" .. tostring(out:sub(1, 200)))
-        local dir = out:match("DIR=([^\n]+)") or ""
-        local cookies = out:match("OUT=([^\n]+)") or ""
-        local total = tonumber(out:match("TOTAL=([^\n]+)") or "0") or 0
-        local kept = tonumber(out:match("KEPT=([^\n]+)") or "0") or 0
-        local log = out:match("LOG=([^\n]*)") or ""
-
-        extraction_active = false
-        state.extracting = false
-
-        if kept > 0 then
-            state.status = "ready"
-            state.temp_dir = dir
-            state.cookies_path = cookies
-            state.cookie_count = kept
-            state.last_error = ""
-            state.status_text = string.format("Saved %d YouTube cookies from %s (filtered %d others)",
-                kept, label, math.max(0, total - kept))
-            if noctalia.notify then
-                noctalia.notify("Noctalia YT Music", state.status_text)
-            end
-            if api and api.library then
-                api.library()
-            end
-            if api and api.fetch_quick_picks then
-                api.fetch_quick_picks(function(qp, mixes)
-                    if type(qp) == "table" and #qp > 0 then
-                        state.quick_picks = qp
-                    end
-                    if type(mixes) == "table" and #mixes > 0 then
-                        state.home_mixes = mixes
-                    end
-                    publish()
-                    fetch_home_thumbs()
-                end)
-            end
-        else
-            state.status = "error"
-            state.cookies_path = ""
-            state.temp_dir = dir
-            state.cookie_count = 0
-            state.last_error = log
-            state.status_text = "No YouTube session found in " .. label
-            open_login(browser)
-            if noctalia.notify then
-                noctalia.notify("Noctalia YT Music", "No YouTube login in " .. label .. ". Opening YouTube Music — sign in, then click the button again.")
-            end
-        end
-        publish()
-    end, 60000, browser)
-end
-
-local function sync_liked_tracks(tracks)
-    if type(tracks) ~= "table" then return end
-    for _, tr in ipairs(tracks) do
-        if tr.id and tr.id ~= "" then
-            state.liked_ids[tr.id] = true
-        end
-    end
-end
-
-local function load_cached_cookies()
-    Bash.run_script("cookies.sh", "load_cached_cookies", function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        if out:find("FOUND=1") then
-            local kept = tonumber(out:match("KEPT=([^\n]+)") or "0") or 0
-            local cookies = out:match("OUT=([^\n]+)") or ""
-            if kept > 0 then
-                state.status = "ready"
-                state.cookies_path = cookies
-                state.cookie_count = kept
-                state.last_error = ""
-                if state.status_text == "Not logged in" then
-                    state.status_text = string.format("Loaded %d saved YouTube cookies", kept)
-                end
-                if api and api.load_cached_playlist then
-                    local vllm = api.load_cached_playlist("VLLM")
-                    if vllm then sync_liked_tracks(vllm) end
-                end
-                if api and api.load_cached_quick_picks then
-                    local qp = api.load_cached_quick_picks()
-                    if qp then state.quick_picks = qp end
-                end
-                sync_audio_cache()
-                publish()
-                if api and api.fetch_quick_picks then
-                    api.fetch_quick_picks(function(qp, mixes)
-                        if type(qp) == "table" and #qp > 0 then
-                            state.quick_picks = qp
-                        end
-                        if type(mixes) == "table" and #mixes > 0 then
-                            state.home_mixes = mixes
-                        end
-                        publish()
-                        fetch_home_thumbs()
-                    end)
-                end
-            end
-        end
-    end, 8000)
-end
-
-local function detect_browsers()
-    Bash.run_script("cookies.sh", "detect_browsers", function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        local available = {}
-        for found in out:gmatch("FOUND=([^\n]+)") do
-            available[found] = true
-        end
-        state.available = available
-        publish()
-    end, 8000)
-end
-
-local function mpv_play(m3u8_url)
-    noctalia.writeFile("/tmp/noctalia-ytmusic-url.txt", m3u8_url)
-    Bash.run_script("mpv.sh", "mpv_play", function() end, 10000, tostring(state.player.volume or 100))
-end
-
-local function mpv_send(payload_json)
-    Bash.run_script("mpv.sh", "mpv_send", function() end, 5000, payload_json)
-end
-
-
-local function player_set(item, stream_url)
-    state.player.title = item.title or "Unknown track"
-    state.player.artist = item.artist or ""
-    state.player.id = item.id or ""
-    local thumb_url = item.thumbnail_url or (item.id and ("https://i.ytimg.com/vi/" .. item.id .. "/hqdefault.jpg") or nil)
-    state.player.thumbnail_url = thumb_url
-    state.player.thumb_path = item.thumb_path or (api and api.get_thumbnail_path and api.get_thumbnail_path(item.id, thumb_url, nil) or nil)
-    state.player.duration = tonumber(item.duration) or 0
-    state.player.status = "playing"
-    state.player.position = 0
-    state.player.codec_fetched = false
-    state.player.bitrate = nil
-    state.player.codec = nil
-    state.player.samplerate = nil
-    state.player.views = 0
-    state.player.likes = 0
-    state.search.pending = false
-
-    if api and api.track_stats and item.id and item.id ~= "" then
-        api.track_stats(item.id, function(views, likes)
-            state.player.views = views or 0
-            state.player.likes = likes or 0
-            publish()
-        end)
-    end
-
-    local title = item.title or "Unknown track"
-    if item.artist and item.artist ~= "" then
-        title = item.title .. " - " .. item.artist
-    end
-    noctalia.writeFile("/tmp/noctalia-ytmusic-title.txt", title)
-
-    if api and api.cache_audio and item.id and item.id ~= "" then
-        api.cache_audio(item.id)
-    end
-
-    mpv_play(stream_url)
-    if api and api.save_session then
-        noctalia.runAsync("true", function()
-            api.save_session(state.player)
-        end)
-    end
-    publish()
-end
-
-local function play_index(index, queue)
-    queue = queue or state.player.queue
-    if #queue == 0 then return end
-    index = math.max(1, math.min(index, #queue))
-    state.player.queue = queue
-    state.player.index = index
-    local item = queue[index]
-    mpv_send(noctalia.json.encode({ command = { "set_property", "pause", true } }))
-    state.player.id = item.id or ""
-    state.player.title = item.title or "Loading track..."
-    state.player.artist = item.artist or ""
-    state.player.thumbnail_url = item.thumbnail_url
-    state.player.thumb_path = item.thumb_path or (api and api.get_thumbnail_path and api.get_thumbnail_path(item.id, item.thumbnail_url, nil) or nil)
-    state.player.duration = tonumber(item.duration) or 0
-    state.player.position = 0
-    state.player.status = "loading"
-    publish()
-    if api and api.ensure_thumbnails then
-        noctalia.runAsync("true", function()
-            api.ensure_thumbnails(state.player.queue, publish, "queue")
-        end)
-    end
-    log("play_index: " .. index .. "/" .. #queue .. " id=" .. tostring(item.id) .. " title='" .. tostring(item.title) .. "'")
-
-    if api and api.prefetch_queue then
-        api.prefetch_queue(queue, index)
-    elseif api and api.prefetch_track then
-        if queue[index + 1] then api.prefetch_track(queue[index + 1]) end
-        if queue[index + 2] then api.prefetch_track(queue[index + 2]) end
-    end
-
-    api.resolve_stream(item.id, function(url)
-        if not url or url == "" then
-            state.player.status = "stopped"
-            state.status_text = "Could not resolve stream for " .. tostring(item.title)
-            publish()
-            log("play_index: stream resolve FAILED for '" .. tostring(item.title) .. "'")
-            return
-        end
-        log("play_index: stream resolved (" .. #url .. " chars), dispatching to mpv")
-        player_set(item, url)
-    end)
-end
-
-local function remember_playlist(pid, title)
-    if not pid or pid == "" then return end
-    local cleaned = {}
-    for _, pl in ipairs(state.recent_playlists or {}) do
-        if tostring(pl.id or "") ~= pid then table.insert(cleaned, pl) end
-    end
-    table.insert(cleaned, 1, { id = pid, title = tostring(title or "Playlist") })
-    while #cleaned > 3 do table.remove(cleaned) end
-    state.recent_playlists = cleaned
-    if api and api.save_recent_playlists_cache then
-        api.save_recent_playlists_cache(cleaned)
-    end
-end
-
-local function play(item)
-    table.insert(state.player.queue, {
-        id = item.id,
-        title = item.title,
-        artist = item.artist or "",
-        duration = tonumber(item.duration) or 0,
-        thumbnail_url = item.thumbnail_url,
-        thumb_path = item.thumb_path
-    })
-    play_index(#state.player.queue)
-end
-
-local function play_next(item)
-    if not item or not item.id or item.id == "" then return end
-    local insert_at
-    if state.player.index > 0 and #state.player.queue > 0 then
-        insert_at = math.min(state.player.index + 1, #state.player.queue + 1)
-    else
-        insert_at = #state.player.queue + 1
-    end
-    table.insert(state.player.queue, insert_at, {
-        id = item.id,
-        title = item.title,
-        artist = item.artist or "",
-        duration = tonumber(item.duration) or 0,
-        thumbnail_url = item.thumbnail_url,
-        thumb_path = item.thumb_path
-    })
-    log("play_next: inserted '" .. tostring(item.title) .. "' at queue position " .. insert_at)
-    if state.player.status == "stopped" then
-        play_index(insert_at)
-    else
-        publish()
-    end
-end
-
-local function mpv_kill()
-    Bash.run_script("mpv.sh", "mpv_kill", function() end, 2000)
-end
-
-local function stop_playback()
-    mpv_kill()
-    state.player.status = "stopped"
-    state.player.queue = {}
-    state.player.index = 0
-    state.player.title = ""
-    state.player.artist = ""
-    state.player.position = 0
-    state.player.duration = 0
-    publish()
-end
-
-
-local last_action_time = 0
-
-local function toggle_playback()
-    last_action_time = os.time()
-    if state.player.status == "playing" then
-        mpv_send(noctalia.json.encode({ command = { "set_property", "pause", true } }))
-        state.player.status = "paused"
-        publish()
-    elseif state.player.status == "paused" then
-        noctalia.runAsync([[
-            SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
-            [ -S "$SOCK" ] && echo "YES" || echo "NO"
-        ]], function(res)
-            if res and res.stdout and res.stdout:find("YES") then
-                mpv_send(noctalia.json.encode({ command = { "set_property", "pause", false } }))
-                state.player.status = "playing"
-                publish()
-            else
-                if #state.player.queue > 0 then
-                    local idx = state.player.index > 0 and state.player.index or 1
-                    play_index(idx)
-                elseif state.player.id and state.player.id ~= "" then
-                    play(state.player)
-                end
-            end
-        end)
-    elseif state.player.status == "stopped" or state.player.status == "idle" then
-        if #state.player.queue > 0 then
-            local idx = state.player.index > 0 and state.player.index or 1
-            play_index(idx)
-        elseif state.player.id and state.player.id ~= "" then
-            play(state.player)
-        end
-    end
-end
-
-local function next_track(is_natural_end)
-    if #state.player.queue == 0 then return end
-
-    if is_natural_end and state.player.repeat_mode == "one" then
-        log("next_track: repeat_mode=one, looping track id=" .. tostring(state.player.id))
-        mpv_send(noctalia.json.encode({ command = { "set_property", "pause", false } }))
-        mpv_send(noctalia.json.encode({ command = { "seek", 0, "absolute" } }))
-        state.player.position = 0
-        state.player.status = "playing"
-        publish()
-        return
-    end
-
-    if state.player.shuffle and #state.player.queue > 1 then
-        math.randomseed(os.time())
-        local rand_idx = math.random(1, #state.player.queue)
-        if rand_idx == state.player.index then
-            rand_idx = (rand_idx % #state.player.queue) + 1
-        end
-        play_index(rand_idx)
-        return
-    end
-
-    local next_idx = state.player.index + 1
-    if next_idx > #state.player.queue then
-        if state.player.repeat_mode == "all" then
-            next_idx = 1
-        else
-            state.player.status = "stopped"
-            publish()
-            return
-        end
-    end
-    play_index(next_idx)
-end
-
-local function prev_track()
-    if #state.player.queue == 0 then return end
-    if state.player.position > 3 then
-        mpv_send(noctalia.json.encode({ command = { "seek", 0, "absolute" } }))
-        state.player.position = 0
-        publish()
-    else
-        local prev_idx = state.player.index - 1
-        if prev_idx < 1 then
-            prev_idx = #state.player.queue
-        end
-        play_index(prev_idx)
-    end
-end
-
-local last_seek_time = 0
-
-local function seek_to(seconds)
-    local val = tonumber(seconds)
-    if not val then return end
-    last_action_time = os.time()
-    last_seek_time = os.time()
-    local dur = tonumber(state.player.duration) or 0
-    local sec = val
-    if dur > 1 and val >= 0 and val <= 1.0 then
-        sec = val * dur
-    end
-    if dur > 0 then
-        sec = math.max(0, math.min(sec, dur))
-    else
-        sec = math.max(0, sec)
-    end
-    log("seek_to: raw=" .. tostring(seconds) .. " resolved=" .. tostring(sec) .. " dur=" .. tostring(dur))
-    state.player.position = sec
-    publish()
-    mpv_send(noctalia.json.encode({ command = { "seek", sec, "absolute" } }))
-end
-
-local function set_volume(value)
-    value = tonumber(value) or 100
-    state.player.volume = math.max(0, math.min(100, value))
-    if state.player.volume > 0 then
-        state.player.last_volume = state.player.volume
-    end
-    mpv_send(noctalia.json.encode({ command = { "set_property", "volume", state.player.volume } }))
-    publish()
-end
-
-local function toggle_mute()
-    if (state.player.volume or 0) > 0 then
-        state.player.last_volume = state.player.volume
-        set_volume(0)
-    else
-        set_volume(state.player.last_volume or 70)
-    end
-end
-
-local function poll_player()
-    Bash.run_script("mpv.sh", "mpv_poll", function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        log("poll output: " .. out:gsub("\n", " "))
-        if out:find("NOMPV=1") then
-            if state.player.status == "playing" then
-                state.player.status = "paused"
-                publish()
-            end
-            return
-        end
-        local changed = false
-        local pos = tonumber(out:match("POS=([^\n]+)") or "") or nil
-        local dur = tonumber(out:match("DUR=([^\n]+)") or "") or nil
-        if state.player.status ~= "loading" then
-            if pos and pos ~= state.player.position then
-                state.player.position = pos
-                changed = true
-            end
-            if dur and dur ~= state.player.duration then
-                state.player.duration = dur
-                changed = true
-            end
-        end
-        if (os.time() - last_action_time) >= 2 then
-            local pause = out:match("PAUSE=([^\n]+)")
-            if pause ~= nil then
-                local paused = (pause == "true" or pause == "1")
-                if paused and state.player.status == "playing" then
-                    state.player.status = "paused"
-                    changed = true
-                elseif not paused and state.player.status == "paused" then
-                    state.player.status = "playing"
-                    changed = true
-                end
-            end
-        end
-        if not state.player.codec_fetched then
-            local bitrate = out:match("BITRATE=([^\n]+)")
-            local codec = out:match("CODEC=([^\n]+)")
-            local rate = out:match("RATE=([^\n]+)")
-            if codec or bitrate then
-                state.player.bitrate = tonumber(bitrate) or 256000
-                state.player.codec = codec or "opus"
-                state.player.samplerate = tonumber(rate) or 48000
-                state.player.codec_fetched = true
-                changed = true
-            end
-        end
-        if changed then
-            publish()
-        end
-        local dur_pos = (state.player.duration or 0) - (state.player.position or 0)
-        if dur_pos > 0 and dur_pos < 5.0 then
-            log("poll_player check: status=" .. tostring(state.player.status) .. " dur=" .. tostring(state.player.duration) .. " pos=" .. tostring(state.player.position) .. " dur_pos=" .. tostring(dur_pos) .. " eof=" .. tostring(out:find("eof-reached") ~= nil))
-        end
-        if (state.player.status == "playing" or (state.player.status == "paused" and out:find("eof-reached"))) 
-            and state.player.duration > 0
-            and state.player.position > 0
-            and (state.player.duration - state.player.position) < 2.0 then
-            log("poll_player: condition met, calling next_track(true)")
-            next_track(true)
-        elseif state.player.status == "playing" 
-            and state.player.duration > 0
-            and state.player.position > 0
-            and (state.player.duration - state.player.position) < 1.5 then
-            log("poll_player: condition met, calling next_track(true)")
-            next_track(true)
-        end
-    end, 6000)
-end
+-- Domain logic lives in dedicated backend modules under modules/.
+-- Service keeps the wiring: logging, and request dispatch.
+local auth = require("./modules/auth.luau")
+local home = require("./modules/home.luau")
+local library = require("./modules/library.luau")
+local mpv = require("./modules/mpv.luau")
+local player = require("./modules/player.luau")
+local downloader = require("./modules/downloader.luau")
 
 noctalia.state.watch(REQ_KEY, function(req)
     if type(req) ~= "table" or not req.nonce or req.nonce <= handled_nonce then return end
@@ -678,32 +24,32 @@ noctalia.state.watch(REQ_KEY, function(req)
     log("request nonce=" .. req.nonce .. " action=" .. tostring(req.action))
 
     if req.action == "extract" then
-        extract_cookies(req.browser)
+        auth.extract_cookies(req.browser)
     elseif req.action == "open_login" then
-        open_login(req.browser)
+        auth.open_login(req.browser)
     elseif req.action == "search" then
         if api and api.search then
             local stype = (req.type == "playlists" or req.type == "top") and req.type or "songs"
             state.search.pending = true
             state.search.query = tostring(req.query or "")
             state.search.type = stype
-            publish()
+            store.publish()
             api.search(state.search.query, 25, function(results)
                 state.search.pending = false
                 state.search.results = results or {}
-                publish()
+                store.publish()
                 noctalia.runAsync("true", function()
-                    api.ensure_thumbnails(state.search.results, publish, "search")
+                    api.ensure_thumbnails(state.search.results, store.publish, "search")
                 end)
             end, stype)
         end
     elseif req.action == "play" then
         log("play: id=" .. tostring(req.item and req.item.id) .. " title='" .. tostring(req.item and req.item.title) .. "'")
-        play(req.item or {})
+        player.play(req.item or {})
     elseif req.action == "play_next" then
-        play_next(req.item or {})
+        player.play_next(req.item or {})
     elseif req.action == "play_queue_index" then
-        play_index(req.index or 1)
+        player.play_index(req.index or 1)
 elseif req.action == "play_with_queue" then
         if req.queue and #req.queue > 0 then
             if req.source_playlist and req.source_playlist ~= "" then
@@ -713,13 +59,13 @@ elseif req.action == "play_with_queue" then
                     if tostring(pl.id or "") == spid then is_library = true break end
                 end
                 if not is_library then
-                    remember_playlist(spid, state.playlist.title or "Playlist")
+                    library.remember_playlist(spid, state.playlist.title or "Playlist")
                 end
             end
             state.player.source_playlist = req.source_playlist
-            play_index(req.index or 1, req.queue)
+            player.play_index(req.index or 1, req.queue)
         elseif req.item then
-            play(req.item)
+            player.play(req.item)
         end
     elseif req.action == "play_playlist" then
         local pid = req.id or req.playlist_id
@@ -729,13 +75,11 @@ elseif req.action == "play_with_queue" then
             local cached = api and api.load_cached_playlist and api.load_cached_playlist(pid)
             if cached and #cached > 0 then
                 state.playlist.tracks = cached
-                play_index(1, cached)
-                playlist_wants_play = false
+                player.play_index(1, cached)
             else
                 state.playlist.tracks = {}
-                playlist_wants_play = true
             end
-            publish()
+            store.publish()
             if api and api.playlist_tracks then
                 api.playlist_tracks(pid)
             end
@@ -747,7 +91,7 @@ elseif req.action == "play_with_queue" then
             state.playlist.tracks = {}
             state.playlist.next_token = nil
             state.playlist.fetching = true
-            publish()
+            store.publish()
             if api and api.playlist_page then
                 api.playlist_page(pid, nil, function(res)
                     state.playlist.fetching = false
@@ -758,10 +102,10 @@ elseif req.action == "play_with_queue" then
                             api.save_playlist_cache(pid, state.playlist.tracks)
                         end)
                     end
-                    publish()
+                    store.publish()
                     if api and api.ensure_thumbnails then
                         noctalia.runAsync("true", function()
-                            api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                            api.ensure_thumbnails(state.playlist.tracks, store.publish, "playlist")
                         end)
                     end
                 end)
@@ -777,23 +121,21 @@ elseif req.action == "play_with_queue" then
             if state.liked_ids[vid] then
                 state.liked_ids[vid] = nil
                 log("toggle_like: unliking vid=" .. tostring(vid))
-                publish()
+                store.publish()
                 if api and api.unlike_video then
                     api.unlike_video(vid, function(ok) end)
                 end
             else
                 state.liked_ids[vid] = true
                 log("toggle_like: liking vid=" .. tostring(vid))
-                publish()
+                store.publish()
                 if api and api.like_video then
                     api.like_video(vid, function(ok) end)
                 end
             end
         end
     elseif req.action == "toggle_shuffle" then
-        state.player.shuffle = not state.player.shuffle
-        log("toggle_shuffle: " .. tostring(state.player.shuffle))
-        publish()
+        player.toggle_shuffle()
     elseif req.action == "refresh_quick_picks" then
         if api and api.fetch_quick_picks then
             api.fetch_quick_picks(function(qp, mixes)
@@ -803,26 +145,17 @@ elseif req.action == "play_with_queue" then
                 if type(mixes) == "table" and #mixes > 0 then
                     state.home_mixes = mixes
                 end
-                publish()
-                fetch_home_thumbs()
+                store.publish()
+                home.fetch_home_thumbs()
             end)
         end
     elseif req.action == "cycle_repeat" then
-        local current = state.player.repeat_mode or "off"
-        if current == "off" then
-            state.player.repeat_mode = "all"
-        elseif current == "all" then
-            state.player.repeat_mode = "one"
-        else
-            state.player.repeat_mode = "off"
-        end
-        log("cycle_repeat: " .. tostring(state.player.repeat_mode))
-        publish()
+        player.cycle_repeat()
     elseif req.action == "download_track" then
         local vid = req.id or req.video_id
         if vid and vid ~= "" then
             log("download_track: queued for id=" .. tostring(vid))
-            enqueue_download(vid, "")
+            downloader.enqueue(vid, "")
         end
     elseif req.action == "download_playlist" then
         local plid = tostring(state.playlist.id or "")
@@ -830,13 +163,13 @@ elseif req.action == "play_with_queue" then
         if api and api.cache_audio and type(state.playlist.tracks) == "table" then
             for _, tr in ipairs(state.playlist.tracks) do
                 if tr.id and tr.id ~= "" then
-                    enqueue_download(tr.id, plid)
+                    downloader.enqueue(tr.id, plid)
                     queued = queued + 1
                 end
             end
         end
         if queued > 0 then
-            publish()
+            store.publish()
         end
         log("download_playlist: queued " .. queued .. " tracks")
     elseif req.action == "open_playlist" then
@@ -848,14 +181,14 @@ elseif req.action == "play_with_queue" then
             local cached = api and api.load_cached_playlist and api.load_cached_playlist(pid)
             if cached and #cached > 0 then
                 state.playlist.tracks = cached
-                if pid == "VLLM" then sync_liked_tracks(cached) end
+                if pid == "VLLM" then library.sync_liked_tracks(cached) end
             else
                 state.playlist.tracks = {}
             end
 
             state.playlist.next_token = nil
             state.playlist.fetching = true
-            publish()
+            store.publish()
 
             if api and api.playlist_page then
                 api.playlist_page(pid, nil, function(res)
@@ -865,7 +198,7 @@ elseif req.action == "play_with_queue" then
                         state.playlist.count = res.total_count
                     end
                     if res.tracks and #res.tracks > 0 then
-                        if pid == "VLLM" then sync_liked_tracks(res.tracks) end
+                        if pid == "VLLM" then library.sync_liked_tracks(res.tracks) end
                         local existing = {}
                         local merged = {}
                         for _, tr in ipairs(res.tracks) do
@@ -882,7 +215,7 @@ elseif req.action == "play_with_queue" then
                         end
                         state.playlist.tracks = merged
                     end
-                    publish()
+                    store.publish()
                     noctalia.runAsync("true", function()
                         if api.save_playlist_cache then
                             api.save_playlist_cache(pid, state.playlist.tracks)
@@ -890,7 +223,7 @@ elseif req.action == "play_with_queue" then
                     end)
                     noctalia.runAsync("true", function()
                         if api and api.ensure_thumbnails then
-                            api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                            api.ensure_thumbnails(state.playlist.tracks, store.publish, "playlist")
                         end
                     end)
                 end)
@@ -917,7 +250,7 @@ elseif req.action == "play_with_queue" then
                                 if tr.id and not existing[tr.id] then
                                     table.insert(state.playlist.tracks, tr)
                                     if queue_sync then
-                                        table.insert(state.player.queue, tr)
+                                        player.append_to_queue(tr)
                                     end
                                     existing[tr.id] = true
                                     added_count = added_count + 1
@@ -944,7 +277,7 @@ elseif req.action == "play_with_queue" then
 
                         state.playlist.fetching = false
                         log("fetch_next_page: added " .. added_count .. " new tracks (total " .. #state.playlist.tracks .. "), next_token=" .. tostring(state.playlist.next_token ~= nil))
-                        publish()
+                        store.publish()
                         noctalia.runAsync("true", function()
                             if api.save_playlist_cache then
                                 api.save_playlist_cache(pid, state.playlist.tracks)
@@ -952,7 +285,7 @@ elseif req.action == "play_with_queue" then
                         end)
                         noctalia.runAsync("true", function()
                             if api and api.ensure_thumbnails then
-                                api.ensure_thumbnails(state.playlist.tracks, publish, "playlist")
+                                api.ensure_thumbnails(state.playlist.tracks, store.publish, "playlist")
                             end
                         end)
                     end)
@@ -961,19 +294,19 @@ elseif req.action == "play_with_queue" then
             end
         end
     elseif req.action == "toggle" then
-        toggle_playback()
+        player.toggle()
     elseif req.action == "next" then
-        next_track()
+        player.next()
     elseif req.action == "prev" then
-        prev_track()
+        player.prev()
     elseif req.action == "seek" then
-        seek_to(req.seconds or req.value or req.position)
+        player.seek(req.seconds or req.value or req.position)
     elseif req.action == "volume" then
-        set_volume(req.value)
+        player.volume(req.value)
     elseif req.action == "toggle_mute" then
-        toggle_mute()
+        player.mute()
     elseif req.action == "stop" then
-        stop_playback()
+        player.stop()
     elseif req.action == "prefetch" then
         if api and api.prefetch_track and req.item then
             api.prefetch_track(req.item)
@@ -995,7 +328,7 @@ elseif req.action == "play_with_queue" then
                     end
                 end
             end
-            publish()
+            store.publish()
         end)
     elseif req.action == "clear_cache" and req.target then
         noctalia.runAsync(([[
@@ -1019,25 +352,25 @@ elseif req.action == "play_with_queue" then
                         end
                     end
                 end
-                publish()
+                store.publish()
             end)
         end)
     elseif req.action == "toggle_autoplay" then
         state.settings.autoplay = not state.settings.autoplay
-        publish()
+        store.publish()
     end
 end)
 
 function update()
-    poll_player()
+    player.poll()
     if api.library_pending() then
         api.finish_library(function(playlists)
             state.library = type(playlists) == "table" and playlists or {}
-            publish()
+            store.publish()
             if type(playlists) == "table" then
                 log("ytmusic: loaded " .. #playlists .. " library playlists")
                 noctalia.runAsync("true", function()
-                    api.ensure_thumbnails(state.library, publish, "library")
+                    api.ensure_thumbnails(state.library, store.publish, "library")
                 end)
             else
                 log("ytmusic: library decode failed")
@@ -1049,9 +382,9 @@ end
 noctalia.setUpdateInterval(1000)
 
 log("boot: service started, api=" .. tostring(type(api)) .. " library=" .. tostring(type(api and api.library)))
-mpv_kill()
-detect_browsers()
-load_cached_cookies()
+mpv.kill()
+auth.detect_browsers()
+auth.load_cached_cookies()
 if api and api.load_cached_library then
     local cached_lib = api.load_cached_library()
     if cached_lib then
@@ -1067,31 +400,13 @@ end
 if api and api.load_session then
     local sess = api.load_session()
     if type(sess) == "table" and sess.id and sess.id ~= "" then
-        state.player.id = sess.id
-        state.player.title = sess.title or ""
-        state.player.artist = sess.artist or ""
-        state.player.thumbnail_url = sess.thumbnail_url
-        state.player.thumb_path = sess.thumb_path
-        state.player.duration = sess.duration or 0
-        state.player.position = sess.position or 0
-        state.player.volume = sess.volume or 70
-        state.player.index = sess.index or 0
-        state.player.queue = type(sess.queue) == "table" and sess.queue or {}
-        state.player.status = "paused"
-        log("session restored: '" .. state.player.title .. "' queue=" .. #state.player.queue)
-        if api and api.track_stats and sess.id and sess.id ~= "" then
-            api.track_stats(sess.id, function(views, likes)
-                state.player.views = views or 0
-                state.player.likes = likes or 0
-                publish()
-            end)
-        end
+        player.restore_session(sess)
     end
 end
 if api and api.library then
     api.library()
 end
-publish()
+store.publish()
 
 function onStop()
     if api and api.save_session then

@@ -13,8 +13,19 @@ local function log(tag, msg)
     noctalia.writeFile(DEBUG_LOG_PATH, prev .. line .. "\n")
 end
 
+-- Binds a fixed "ytm/<module>" (or "ytapi/<module>") tag so every log
+-- line names its origin and layer in the plugin.
+local function module(...)
+    local parts = { ... }
+    local tag = table.concat(parts, "/")
+    return function(msg)
+        log(tag, msg)
+    end
+end
+
 return {
     log = log,
+    module = module,
     debug_enabled = debug_enabled,
     DEBUG_LOG_PATH = DEBUG_LOG_PATH
 }

@@ -1,0 +1,72 @@
+local store = require("./store.luau")
+local api = require("../api.luau")
+local logger = require("../log.luau")
+
+local state = store.state
+local log = logger.module("ytm", "library")
+
+local Library = {}
+
+function Library.audit_downloaded_playlists()
+    if not api or not api.load_cached_playlist then return end
+    state.downloaded_playlist_ids = {}
+    local done = 0
+    for _, pl in ipairs(state.library) do
+        local pid = tostring(pl.id or "")
+        if pid ~= "" then
+            local tracks = api.load_cached_playlist(pid)
+            if tracks and #tracks > 0 and type(state.cached_audio_ids) == "table" then
+                local all_dl = true
+                for _, tr in ipairs(tracks) do
+                    if tr.id and not state.cached_audio_ids[tr.id] then
+                        all_dl = false
+                        break
+                    end
+                end
+                if all_dl then
+                    state.downloaded_playlist_ids[pid] = true
+                    done = done + 1
+                end
+            end
+        end
+    end
+    log("audit_downloaded_playlists: " .. done .. " fully downloaded")
+end
+
+function Library.remember_playlist(pid, title)
+    if not pid or pid == "" then return end
+    local cleaned = {}
+    for _, pl in ipairs(state.recent_playlists or {}) do
+        if tostring(pl.id or "") ~= pid then table.insert(cleaned, pl) end
+    end
+    table.insert(cleaned, 1, { id = pid, title = tostring(title or "Playlist") })
+    while #cleaned > 3 do table.remove(cleaned) end
+    state.recent_playlists = cleaned
+    if api and api.save_recent_playlists_cache then
+        api.save_recent_playlists_cache(cleaned)
+    end
+end
+
+function Library.sync_liked_tracks(tracks)
+    if type(tracks) ~= "table" then return end
+    for _, tr in ipairs(tracks) do
+        if tr.id and tr.id ~= "" then
+            state.liked_ids[tr.id] = true
+        end
+    end
+    log("sync_liked_tracks: +" .. tostring(#tracks))
+end
+
+function Library.sync_audio_cache()
+    if api and api.get_cached_audio_ids then
+        api.get_cached_audio_ids(function(set)
+            if type(set) == "table" then
+                state.cached_audio_ids = set
+                Library.audit_downloaded_playlists()
+                store.publish()
+            end
+        end)
+    end
+end
+
+return Library

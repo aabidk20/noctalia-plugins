@@ -3,7 +3,7 @@
 -- on-disk cache read/write: library, playlists, session, recent playlists.
 
 local logger = require("../log.luau")
-local function log(msg) logger.log("ytapi", msg) end
+local log = logger.module("ytapi", "cache")
 
 local const = require("./constants.luau")
 local LIBRARY_CACHE_PATH = const.LIBRARY_CACHE_PATH

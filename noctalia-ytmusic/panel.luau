@@ -2,7 +2,7 @@ local STATE_KEY = "noctalia_ytmusic.state"
 
 local REQ_KEY = "noctalia_ytmusic.request"
 local theme = require("./theme.luau")
-local state = require("./state.luau").new()
+local state = require("./schema.luau").new()
 
 local req_nonce = os.time() * 1000
 
