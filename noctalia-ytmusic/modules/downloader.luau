@@ -76,4 +76,22 @@ function Downloader.enqueue(id, plid)
     pump()
 end
 
+function Downloader.enqueue_playlist(tracks, plid)
+    local pid = tostring(plid or "")
+    local queued = 0
+    if api and api.cache_audio and type(tracks) == "table" then
+        for _, tr in ipairs(tracks) do
+            if tr.id and tr.id ~= "" then
+                Downloader.enqueue(tr.id, pid)
+                queued = queued + 1
+            end
+        end
+    end
+    if queued > 0 then
+        publish()
+    end
+    log("download_playlist: queued " .. queued .. " tracks")
+    return queued
+end
+
 return Downloader

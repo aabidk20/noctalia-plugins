@@ -69,4 +69,29 @@ function Library.sync_audio_cache()
     end
 end
 
+function Library.toggle_like(vid)
+    vid = vid or state.player.id
+    log("toggle_like: vid=" .. tostring(vid) .. " current=" .. tostring(state.liked_ids and state.liked_ids[vid]))
+    if vid and vid ~= "" then
+        if api and api.invalidate_playlist_cache then
+            api.invalidate_playlist_cache("VLLM")
+        end
+        if state.liked_ids[vid] then
+            state.liked_ids[vid] = nil
+            log("toggle_like: unliking vid=" .. tostring(vid))
+            store.publish()
+            if api and api.unlike_video then
+                api.unlike_video(vid, function(ok) end)
+            end
+        else
+            state.liked_ids[vid] = true
+            log("toggle_like: liking vid=" .. tostring(vid))
+            store.publish()
+            if api and api.like_video then
+                api.like_video(vid, function(ok) end)
+            end
+        end
+    end
+end
+
 return Library

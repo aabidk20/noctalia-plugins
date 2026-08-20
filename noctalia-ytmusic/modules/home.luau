@@ -5,6 +5,20 @@ local state = store.state
 
 local Home = {}
 
+function Home.refresh_quick_picks()
+    if not (api and api.fetch_quick_picks) then return end
+    api.fetch_quick_picks(function(qp, mixes)
+        if type(qp) == "table" and #qp > 0 then
+            state.quick_picks = qp
+        end
+        if type(mixes) == "table" and #mixes > 0 then
+            state.home_mixes = mixes
+        end
+        store.publish()
+        Home.fetch_home_thumbs()
+    end)
+end
+
 function Home.fetch_home_thumbs()
     if not (api and api.ensure_thumbnails) then return end
     local combined = {}
