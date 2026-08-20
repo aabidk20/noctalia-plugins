@@ -32,19 +32,6 @@ local function ensure_thumbs(kind)
     end
 end
 
-local function dedupe(existing_ids, incoming)
-    local merged = {}
-    local seen = {}
-    for id in pairs(existing_ids) do seen[id] = true end
-    for _, tr in ipairs(incoming) do
-        if tr.id and not seen[tr.id] then
-            table.insert(merged, tr)
-            seen[tr.id] = true
-        end
-    end
-    return merged
-end
-
 -- keep everything already loaded plus append genuinely-new tracks
 local function merge_keep_existing(existing, incoming)
     local merged = {}
@@ -70,15 +57,8 @@ function Playlist.open(pid, title)
     state.playlist.id = pid
     state.playlist.title = tostring(title or "Playlist")
 
-    local cached = load_cached(pid)
-    if cached and #cached > 0 then
-        state.playlist.tracks = cached
-        if pid == "VLLM" then library.sync_liked_tracks(cached) end
-    else
-        state.playlist.tracks = {}
-    end
-
     state.playlist.next_token = nil
+    state.playlist.tracks = {}
     state.playlist.fetching = true
     store.publish()
 
@@ -98,6 +78,17 @@ function Playlist.open(pid, title)
             ensure_thumbs("playlist")
         end)
     end
+
+    noctalia.runAsync("true", function()
+        local cached = load_cached(pid)
+        if cached and #cached > 0 then
+            if pid == "VLLM" then library.sync_liked_tracks(cached) end
+            if state.playlist.id == pid and #state.playlist.tracks == 0 then
+                state.playlist.tracks = cached
+                store.publish()
+            end
+        end
+    end)
 end
 
 -- play from cached tracks only (play_playlist)

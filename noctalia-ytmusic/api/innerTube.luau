@@ -134,20 +134,31 @@ local function load_cookie_values()
     return values
 end
 
+local auth_state = { ready = false, sapisid = "", cookie = "" }
+
+function EXPO.invalidate_auth()
+    auth_state.ready = false
+end
+
 local function build_auth(): (string?, string?)
-    local values = load_cookie_values()
-    local sapisid = values["SAPISID"]
-    if not sapisid or sapisid == "" then
-        return nil, nil
+    if not auth_state.ready then
+        local values = load_cookie_values()
+        local sapisid = values["SAPISID"]
+        if not sapisid or sapisid == "" then
+            return nil, nil
+        end
+        local cookieParts = {}
+        for k, v in pairs(values) do
+            table.insert(cookieParts, k .. "=" .. v)
+        end
+        auth_state.sapisid = sapisid
+        auth_state.cookie = table.concat(cookieParts, "; ")
+        auth_state.ready = true
     end
     local ts = math.floor(noctalia.nowMs() / 1000)
-    local hash = sha1(ts .. " " .. sapisid .. " " .. ORIGIN)
+    local hash = sha1(ts .. " " .. auth_state.sapisid .. " " .. ORIGIN)
     local auth = "SAPISIDHASH " .. ts .. "_" .. hash
-    local cookieParts = {}
-    for k, v in pairs(values) do
-        table.insert(cookieParts, k .. "=" .. v)
-    end
-    return auth, table.concat(cookieParts, "; ")
+    return auth, auth_state.cookie
 end
 
 local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> (), defer: boolean?)

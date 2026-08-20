@@ -7,30 +7,45 @@ local log = logger.module("ytm", "library")
 
 local Library = {}
 
+local auditing = false
+local audit_pending = false
+
 function Library.audit_downloaded_playlists()
     if not api or not api.load_cached_playlist then return end
-    state.downloaded_playlist_ids = {}
-    local done = 0
-    for _, pl in ipairs(state.library) do
-        local pid = tostring(pl.id or "")
-        if pid ~= "" then
-            local tracks = api.load_cached_playlist(pid)
-            if tracks and #tracks > 0 and type(state.cached_audio_ids) == "table" then
-                local all_dl = true
-                for _, tr in ipairs(tracks) do
-                    if tr.id and not state.cached_audio_ids[tr.id] then
-                        all_dl = false
-                        break
+    if auditing then
+        audit_pending = true
+        return
+    end
+    auditing = true
+    noctalia.runAsync("true", function()
+        state.downloaded_playlist_ids = {}
+        local done = 0
+        for _, pl in ipairs(state.library) do
+            local pid = tostring(pl.id or "")
+            if pid ~= "" then
+                local tracks = api.load_cached_playlist(pid)
+                if tracks and #tracks > 0 and type(state.cached_audio_ids) == "table" then
+                    local all_dl = true
+                    for _, tr in ipairs(tracks) do
+                        if tr.id and not state.cached_audio_ids[tr.id] then
+                            all_dl = false
+                            break
+                        end
                     end
-                end
-                if all_dl then
-                    state.downloaded_playlist_ids[pid] = true
-                    done = done + 1
+                    if all_dl then
+                        state.downloaded_playlist_ids[pid] = true
+                        done = done + 1
+                    end
                 end
             end
         end
-    end
-    log("audit_downloaded_playlists: " .. done .. " fully downloaded")
+        log("audit_downloaded_playlists: " .. done .. " fully downloaded")
+        auditing = false
+        if audit_pending then
+            audit_pending = false
+            Library.audit_downloaded_playlists()
+        end
+    end)
 end
 
 function Library.remember_playlist(pid, title)

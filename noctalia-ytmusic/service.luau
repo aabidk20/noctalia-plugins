@@ -162,18 +162,21 @@ if api and api.load_cached_library then
         state.library = cached_lib
     end
 end
-if api and api.load_cached_recent_playlists then
-    local cached_recent = api.load_cached_recent_playlists()
-    if cached_recent then
-        state.recent_playlists = cached_recent
+noctalia.runAsync("true", function()
+    if api and api.load_cached_recent_playlists then
+        local cached_recent = api.load_cached_recent_playlists()
+        if cached_recent then
+            state.recent_playlists = cached_recent
+        end
     end
-end
-if api and api.load_session then
-    local sess = api.load_session()
-    if type(sess) == "table" and sess.id and sess.id ~= "" then
-        player.restore_session(sess)
+    if api and api.load_session then
+        local sess = api.load_session()
+        if type(sess) == "table" and sess.id and sess.id ~= "" then
+            player.restore_session(sess)
+        end
     end
-end
+    store.publish()
+end)
 if api and api.library then
     api.library()
 end
