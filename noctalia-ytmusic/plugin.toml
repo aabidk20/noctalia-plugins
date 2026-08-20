@@ -1,10 +1,12 @@
 id = "aabidk20/noctalia-ytmusic"
 name = "Noctalia YT Music"
-version = "0.1.4"
+version = "0.2.0"
 plugin_api = 23
 author = "Aabid"
+license = "MIT"
 description = "YouTube Music client for Noctalia v5 - miniplayer & full view"
-tags = ["ytmusic", "music"]
+tags = ["music", "media"]
+dependencies = ["yt-dlp", "mpv", "mpv-mpris", "jq", "curl", "nc"]
 
 [[setting]]
 key = "debug_logging"
