@@ -27,4 +27,15 @@ function Bash.run_script(file, fn, cb, timeout, ...)
     return noctalia.runAsync(cmd)
 end
 
+-- Long-lived stream: runs the same shaped command but routes every stdout line
+-- to on_line until the process exits (e.g. the mpv IPC event stream).
+function Bash.run_stream(file, fn, on_line, ...)
+    local cmd = "bash " .. Bash.sh_quote(PLUGIN_DIR .. "/scripts/" .. file)
+    cmd = cmd .. " " .. Bash.sh_quote(fn)
+    for _, a in ipairs({ ... }) do
+        cmd = cmd .. " " .. Bash.sh_quote(a)
+    end
+    return noctalia.runStream(cmd, on_line)
+end
+
 return Bash

@@ -52,19 +52,29 @@ mpv_kill() {
   rm -f "$SOCK" /tmp/noctalia-ytmusic-url.txt
 }
 
-mpv_poll() {
-  [ -S "$SOCK" ] || { echo "NOMPV=1"; exit 0; }
-  RES=$(printf '{"command":["get_property","time-pos"]}\n{"command":["get_property","duration"]}\n{"command":["get_property","pause"]}\n{"command":["get_property","audio-bitrate"]}\n{"command":["get_property","audio-codec-name"]}\n{"command":["get_property","audio-params/samplerate"]}\n{"command":["get_property","eof-reached"]}\n' | nc -U -N -w1 "$SOCK" 2>/dev/null)
-  [ -n "$RES" ] || exit 0
-  echo "$RES" | awk -F'"data":' '
-    NR==1 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "POS=" a[1] }
-    NR==2 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "DUR=" a[1] }
-    NR==3 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "PAUSE=" a[1] }
-    NR==4 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "BITRATE=" a[1] }
-    NR==5 && NF>1 { split($2,a,"[\",}]"); if (a[2] != "null") print "CODEC=" a[2] }
-    NR==6 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null") print "RATE=" a[1] }
-    NR==7 && NF>1 { split($2,a,"[,}]"); if (a[1] != "null" && a[1] == "true") print "eof-reached=true" }
-  '
+# Persistent push stream: one connection that lives for the lifetime of the
+# mpv instance. mpv pushes `end-file` and `property-change` events natively;
+# time-pos is requested once per second (the keep-alive loop doubles as the
+# ticker). When mpv dies the socket closes, nc exits, the next printf gets
+# SIGPIPE, and the whole pipeline ends -> runStream sees EOF.
+mpv_stream() {
+  [ -S "$SOCK" ] || exit 0
+  {
+    printf '{"command":["observe_property",1,"pause"]}\n'
+    printf '{"command":["observe_property",2,"duration"]}\n'
+    printf '{"command":["observe_property",3,"eof-reached"]}\n'
+    printf '{"command":["observe_property",4,"audio-codec-name"]}\n'
+    printf '{"command":["observe_property",5,"audio-params/samplerate"]}\n'
+    i=0
+    while true; do
+      printf '{"command":["get_property","time-pos"],"request_id":100}\n'
+      if [ $((i % 10)) -eq 0 ]; then
+        printf '{"command":["get_property","audio-bitrate"],"request_id":200}\n'
+      fi
+      i=$((i + 1))
+      sleep 1
+    done
+  } | nc -U "$SOCK"
 }
 
 fn="${1:?fn required}"; shift

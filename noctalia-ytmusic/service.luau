@@ -133,7 +133,6 @@ noctalia.state.watch(REQ_KEY, function(req)
 end)
 
 function update()
-    player.poll()
     if api.library_pending() then
         api.finish_library(function(playlists)
             state.library = type(playlists) == "table" and playlists or {}

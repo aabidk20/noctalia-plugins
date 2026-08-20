@@ -10,7 +10,8 @@ local log = logger.module("ytm", "player")
 
 local publish = store.publish
 
-local last_action_time = 0
+local stream_generation = 0
+local start_stream
 
 local function player_set(item, stream_url)
     state.player.title = item.title or "Unknown track"
@@ -48,7 +49,9 @@ local function player_set(item, stream_url)
         api.cache_audio(item.id)
     end
 
-    mpv.play(stream_url, state.player.volume)
+    mpv.play(stream_url, state.player.volume, function(ready)
+        if ready then start_stream() end
+    end)
     if api and api.save_session then
         noctalia.runAsync("true", function()
             api.save_session(state.player)
@@ -151,7 +154,6 @@ function Player.stop()
 end
 
 function Player.toggle()
-    last_action_time = os.time()
     if state.player.status == "playing" then
         mpv.send((noctalia.json.encode({ command = { "set_property", "pause", true } })))
         state.player.status = "paused"
@@ -238,7 +240,6 @@ end
 function Player.seek(seconds)
     local val = tonumber(seconds)
     if not val then return end
-    last_action_time = os.time()
     local dur = tonumber(state.player.duration) or 0
     local sec = val
     if dur > 1 and val >= 0 and val <= 1.0 then
@@ -319,75 +320,86 @@ function Player.restore_session(sess)
     end
 end
 
-function Player.poll()
-    mpv.poll(function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        log("poll output: " .. out:gsub("\n", " "))
-        if out:find("NOMPV=1") then
-            if state.player.status == "playing" then
-                state.player.status = "paused"
+-- One push stream per mpv instance, launched when mpv_play reports READY.
+-- Tracks a generation so lines from an old stream (mpv was killed mid switch,
+-- socket lingers ~1s) are dropped the moment a newer stream takes over.
+local function handle_stream_line(line)
+    if not line or line == "" then return end
+    local data = noctalia.json.decode(line)
+    if type(data) ~= "table" then return end
+
+    if data.event ~= "property-change" then
+        if data.request_id == 100 then
+            local pos = tonumber(data.data)
+            if pos and state.player.status ~= "loading" and state.player.status ~= "stopped"
+                and pos ~= state.player.position then
+                state.player.position = pos
                 publish()
             end
-            return
-        end
-        local changed = false
-        local pos = tonumber(out:match("POS=([^\n]+)") or "") or nil
-        local dur = tonumber(out:match("DUR=([^\n]+)") or "") or nil
-        if state.player.status ~= "loading" then
-            if pos and pos ~= state.player.position then
-                state.player.position = pos
-                changed = true
-            end
-            if dur and dur ~= state.player.duration then
-                state.player.duration = dur
-                changed = true
-            end
-        end
-        if (os.time() - last_action_time) >= 2 then
-            local pause = out:match("PAUSE=([^\n]+)")
-            if pause ~= nil then
-                local paused = (pause == "true" or pause == "1")
-                if paused and state.player.status == "playing" then
-                    state.player.status = "paused"
-                    changed = true
-                elseif not paused and state.player.status == "paused" then
-                    state.player.status = "playing"
-                    changed = true
-                end
-            end
-        end
-        if not state.player.codec_fetched then
-            local bitrate = out:match("BITRATE=([^\n]+)")
-            local codec = out:match("CODEC=([^\n]+)")
-            local rate = out:match("RATE=([^\n]+)")
-            if codec or bitrate then
-                state.player.bitrate = tonumber(bitrate) or 256000
-                state.player.codec = codec or "opus"
-                state.player.samplerate = tonumber(rate) or 48000
+        elseif data.request_id == 200 then
+            local v = tonumber(data.data)
+            if v and v ~= state.player.bitrate then
+                state.player.bitrate = v
                 state.player.codec_fetched = true
+                publish()
+            end
+        end
+        return
+    end
+
+    local name = data.name
+    if name == "eof-reached" then
+        local st = state.player.status
+        if data.data == true and (st == "playing" or st == "paused") then
+            log("stream: eof-reached -> next(true)")
+            Player.next(true)
+        end
+        return
+    end
+    if name == "pause" then
+        if state.player.status == "loading" or state.player.status == "stopped" then return end
+        local paused = (data.data == true)
+        if paused and state.player.status == "playing" then
+            state.player.status = "paused"
+            publish()
+        elseif not paused and state.player.status == "paused" then
+            state.player.status = "playing"
+            publish()
+        end
+    elseif name == "duration" then
+        local d = tonumber(data.data)
+        if d and d > 0 and d ~= state.player.duration then
+            state.player.duration = d
+            publish()
+        end
+    else
+        local changed = false
+        if name == "audio-codec-name" then
+            local v = data.data
+            if v and v ~= state.player.codec then
+                state.player.codec = v
+                changed = true
+            end
+        elseif name == "audio-params/samplerate" then
+            local v = tonumber(data.data)
+            if v and v ~= state.player.samplerate then
+                state.player.samplerate = v
                 changed = true
             end
         end
         if changed then
+            state.player.codec_fetched = true
             publish()
         end
-        local dur_pos = (state.player.duration or 0) - (state.player.position or 0)
-        if dur_pos > 0 and dur_pos < 5.0 then
-            log("poll check: status=" .. tostring(state.player.status) .. " dur=" .. tostring(state.player.duration) .. " pos=" .. tostring(state.player.position) .. " dur_pos=" .. tostring(dur_pos) .. " eof=" .. tostring(out:find("eof-reached") ~= nil))
-        end
-        if (state.player.status == "playing" or (state.player.status == "paused" and out:find("eof-reached")))
-            and state.player.duration > 0
-            and state.player.position > 0
-            and (state.player.duration - state.player.position) < 2.0 then
-            log("poll: condition met, calling next(true)")
-            Player.next(true)
-        elseif state.player.status == "playing"
-            and state.player.duration > 0
-            and state.player.position > 0
-            and (state.player.duration - state.player.position) < 1.5 then
-            log("poll: condition met, calling next(true)")
-            Player.next(true)
-        end
+    end
+end
+
+start_stream = function()
+    stream_generation = stream_generation + 1
+    local gen = stream_generation
+    mpv.stream(function(line)
+        if stream_generation ~= gen then return end
+        handle_stream_line(line)
     end)
 end
 
