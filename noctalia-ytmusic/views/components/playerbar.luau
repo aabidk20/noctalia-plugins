@@ -32,7 +32,7 @@ local function build_player_bar()
 
     local now_playing = ui.row({ key = "pb-now", align = "center", gap = 10, width = 300 }, {
         player_thumb,
-        ui.column({ gap = 4, flexGrow = 1 }, {
+        ui.column({ gap = 1, flexGrow = 1 }, {
             ui.row({ key = "pb-title-row", align = "center", gap = 6 }, {
                 ui.label({
                     text = track_label,
@@ -58,30 +58,33 @@ local function build_player_bar()
                     onHover = function() end
                 })
             }),
-            ui.label({
-                text = track_meta,
-                fontSize = theme.fontBody,
-                maxLines = 1,
-                color = is_playing and "primary" or "on_surface_variant"
-            }),
-            (function()
-                local stats_text = ""
-                local stats = {}
-                if player.views and player.views > 0 then
-                    table.insert(stats, common.fmt_count(player.views) .. " views")
-                end
-                if player.likes and player.likes > 0 then
-                    table.insert(stats, common.fmt_count(player.likes) .. " likes")
-                end
-                stats_text = table.concat(stats, " • ")
-                if stats_text == "" then return nil end
-                return ui.label({
-                    text = stats_text,
-                    fontSize = theme.fontBody,
+            ui.column({ gap = 3 }, {
+                ui.label({
+                    text = track_meta,
+                    fontSize = theme.fontTitle,
                     maxLines = 1,
-                    color = "on_surface_variant"
-                })
-            end)()
+                    color = is_playing and "primary" or "on_surface_variant"
+                }),
+                (function()
+                    local stats_text = ""
+                    local stats = {}
+                    if player.views and player.views > 0 then
+                        table.insert(stats, common.fmt_count(player.views) .. " views")
+                    end
+                    if player.likes and player.likes > 0 then
+                        table.insert(stats, common.fmt_count(player.likes) .. " likes")
+                    end
+                    stats_text = table.concat(stats, " • ")
+                    -- Always render the stats line so the column height is stable
+                    -- and the artist label above it never shifts when stats arrive.
+                    return ui.label({
+                        text = (stats_text == "") and "\u{00A0}" or stats_text,
+                        fontSize = theme.fontTitle,
+                        maxLines = 1,
+                        color = "on_surface_variant"
+                    })
+                end)()
+            })
         })
     })
 

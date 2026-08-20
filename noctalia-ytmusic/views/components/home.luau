@@ -15,7 +15,7 @@ local function build_home()
             ui.glyph({ name = "sparkles", size = 18, color = "primary" }),
             ui.column({ gap = 1 }, {
                 ui.label({ text = "QUICK PICKS", fontSize = theme.fontHeading, fontWeight = "bold", color = "primary" }),
-                ui.label({ text = "Start listening to tracks picked for you", fontSize = theme.fontBody, color = "on_surface_variant" })
+                ui.label({ text = "Start listening to tracks picked for you", fontSize = theme.fontTitle, color = "on_surface_variant" })
             })
         }),
         ui.button({

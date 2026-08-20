@@ -23,7 +23,7 @@ EXPO.QUICK_PICKS_CACHE_PATH = CACHE_ROOT .. "/quick_picks.json"
 EXPO.THUMB_DIR = CACHE_ROOT .. "/thumbnails"
 EXPO.STREAMS_CACHE_DIR = CACHE_ROOT .. "/streams"
 EXPO.AUDIO_DIR = CACHE_ROOT .. "/audio"
-EXPO.STATS_CACHE_DIR = CACHE_ROOT .. "/stats"
+EXPO.STATS_CACHE_PATH = CACHE_ROOT .. "/stats.json"
 
 EXPO.CONTEXT = {
     context = {

@@ -9,7 +9,6 @@ local const = require("./constants.luau")
 local COOKIE_PATH = const.COOKIE_PATH
 local STREAMS_CACHE_DIR = const.STREAMS_CACHE_DIR
 local AUDIO_DIR = const.AUDIO_DIR
-local STATS_CACHE_DIR = const.STATS_CACHE_DIR
 
 local thumbs = require("./thumbnails.luau")
 local get_thumbnail_path = thumbs.get_thumbnail_path
@@ -44,15 +43,11 @@ local function sanitize_str(str)
     return (str:gsub("[^\32-\126]", ""):gsub("^%s+", ""):gsub("%s+$", ""))
 end
 
-local STATS_TTL = 7 * 24 * 3600
-
 local EXPO = {}
 
 local stream_cache = {}
 local prefetching_ids = {}
 local resolving_in_flight = {}
-local stats_cache = {}
-local stats_in_flight = {}
 
 function EXPO.get_audio_cache_path(video_id: string): string?
     if type(video_id) ~= "string" or video_id == "" then return nil end
@@ -162,80 +157,6 @@ function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
             for _, callback in ipairs(callbacks) do
                 if callback then callback(nil) end
             end
-        end
-    end, 30000)
-end
-
-function EXPO.track_stats(video_id: string, cb: ((number, number) -> ())?)
-    if type(video_id) ~= "string" or video_id == "" then
-        if cb then cb(0, 0) end
-        return
-    end
-
-    local cached = stats_cache[video_id]
-    if cached and (os.time() - cached.timestamp) < STATS_TTL then
-        if cb then cb(cached.views, cached.likes) end
-        return
-    end
-
-    local safe_id = video_id:gsub("[^%w%-_]", "_")
-    local cache_file = STATS_CACHE_DIR .. "/" .. safe_id .. ".txt"
-    if noctalia.fileExists(cache_file) then
-        local raw = sanitize_str(noctalia.readFile(cache_file) or "")
-        local views = tonumber(raw:match("VIEWS=(%d+)")) or 0
-        local likes = tonumber(raw:match("LIKES=(%d+)")) or 0
-        local fetched = tonumber(raw:match("FETCHED=(%d+)")) or 0
-        if (os.time() - fetched) < STATS_TTL then
-            stats_cache[video_id] = { views = views, likes = likes, timestamp = fetched }
-            if cb then cb(views, likes) end
-            return
-        end
-    end
-
-    if stats_in_flight[video_id] then
-        table.insert(stats_in_flight[video_id], cb)
-        return
-    end
-    stats_in_flight[video_id] = { cb }
-
-    local script = ([=[
-export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
-OUT="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic/cookies.txt"
-CACHE_DIR="]=] .. STATS_CACHE_DIR .. [=["
-CACHE_FILE="$CACHE_DIR/VIDEO.txt"
-NOW=$(date +%s)
-[ -s "$OUT" ] || { echo "NOCACHE=1"; exit 0; }
-LINE=$(yt-dlp --skip-download --no-playlist --no-warnings --cookies "$OUT" --print "%(view_count)s|%(like_count)s" "https://www.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
-VIEWS=$(printf '%s' "$LINE" | cut -d'|' -f1)
-LIKES=$(printf '%s' "$LINE" | cut -d'|' -f2)
-case "$VIEWS" in
-  ''|*[!0-9]*) VIEWS=0;;
-esac
-case "$LIKES" in
-  ''|*[!0-9]*) LIKES=0;;
-esac
-mkdir -p "$CACHE_DIR"
-printf 'VIEWS=%s\nLIKES=%s\nFETCHED=%s\n' "$VIEWS" "$LIKES" "$NOW" > "$CACHE_FILE"
-echo "STATS=$VIEWS|$LIKES"
-]=]):gsub("VIDEO", safe_id)
-    noctalia.runAsync(script, function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        local views_likes = out:match("STATS=([%d|]+)")
-        local views = 0
-        local likes = 0
-        if views_likes then
-            local v, l = views_likes:match("^(%d*)|(%d*)$")
-            views = tonumber(v) or 0
-            likes = tonumber(l) or 0
-        end
-        if out:find("NOCACHE") then
-            views, likes = 0, 0
-        end
-        stats_cache[video_id] = { views = views, likes = likes, timestamp = os.time() }
-        local callbacks = stats_in_flight[video_id] or {}
-        stats_in_flight[video_id] = nil
-        for _, callback in ipairs(callbacks) do
-            if callback then callback(views, likes) end
         end
     end, 30000)
 end

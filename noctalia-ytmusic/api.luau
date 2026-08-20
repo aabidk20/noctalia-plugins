@@ -5,6 +5,7 @@ local COOKIE_PATH = const.COOKIE_PATH
 
 local REQUIRED_MODULES = {
     "./api/search.luau",
+    "./api/stats.luau",
     "./api/thumbnails.luau",
     "./api/likes.luau",
     "./api/cache.luau",
