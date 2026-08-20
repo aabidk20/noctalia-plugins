@@ -1,6 +1,6 @@
 local STATE = "noctalia_ytmusic.state"
-local REQ = "noctalia_ytmusic.request"
 local theme = require("./utils/theme.luau")
+local request = require("./views/actions.luau")
 
 local state = {
     status = "idle",
@@ -18,17 +18,6 @@ local state = {
 }
 
 local seek_drag_state = nil
-
-local req_nonce = os.time() * 1000
-
-local function request(action, params)
-    req_nonce = math.max(req_nonce + 1, os.time() * 1000)
-    local payload = { action = action, nonce = req_nonce }
-    if params then
-        for k, v in pairs(params) do payload[k] = v end
-    end
-    noctalia.state.set(REQ, payload)
-end
 
 local function fmt_time(sec)
     sec = tonumber(sec) or 0

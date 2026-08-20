@@ -45,6 +45,25 @@ local function dedupe(existing_ids, incoming)
     return merged
 end
 
+-- keep everything already loaded plus append genuinely-new tracks
+local function merge_keep_existing(existing, incoming)
+    local merged = {}
+    local seen = {}
+    for _, tr in ipairs(existing) do
+        if tr.id then
+            table.insert(merged, tr)
+            seen[tr.id] = true
+        end
+    end
+    for _, tr in ipairs(incoming) do
+        if tr.id and not seen[tr.id] then
+            table.insert(merged, tr)
+            seen[tr.id] = true
+        end
+    end
+    return merged
+end
+
 -- full open/fetch of a playlist (open_playlist)
 function Playlist.open(pid, title)
     if not pid or pid == "" then return end
@@ -72,11 +91,7 @@ function Playlist.open(pid, title)
             end
             if res.tracks and #res.tracks > 0 then
                 if pid == "VLLM" then library.sync_liked_tracks(res.tracks) end
-                local existing = {}
-                for _, tr in ipairs(state.playlist.tracks) do
-                    if tr.id then existing[tr.id] = true end
-                end
-                state.playlist.tracks = dedupe(existing, res.tracks)
+                state.playlist.tracks = merge_keep_existing(state.playlist.tracks, res.tracks)
             end
             store.publish()
             save_cache(pid)
