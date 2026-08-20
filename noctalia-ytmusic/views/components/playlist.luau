@@ -35,7 +35,7 @@ local function build_playlist_view()
     local pl = state.data.playlist
     local view = state.view
     local child = {}
-    local PAGE_SIZE = 100
+    local PAGE_SIZE = 50
 
     local downloaded_count = 0
     if #pl.tracks > 0 then

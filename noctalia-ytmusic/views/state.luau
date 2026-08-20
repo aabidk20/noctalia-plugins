@@ -57,7 +57,7 @@ local function apply(snapshot)
 
     if type(data.player) == "table" and data.player.index and old_player_index
         and data.player.index ~= old_player_index then
-        view.queue_view_page = math.max(0, math.floor((data.player.index - 1) / 100))
+        view.queue_view_page = math.max(0, math.floor((data.player.index - 1) / 50))
     end
 
     rerender.call()
@@ -147,16 +147,40 @@ local function play_playlist(pl)
     request("play_playlist", { id = pl.id, title = pl.title })
 end
 
+local hover_render_nonce = 0
+local last_hover_render_at = 0
+local HOVER_COALESCE_MS = 30
+
+-- Leading-edge + trailing-edge debounce: render immediately when the previous
+-- hover render was >30ms ago (slow, deliberate moves stay instant), otherwise
+-- coalesce rapid sweeps into the window and render once at the end.
+local function hover_render()
+    local now = noctalia.nowMs()
+    if now - last_hover_render_at >= HOVER_COALESCE_MS then
+        last_hover_render_at = now
+        rerender.call()
+        return
+    end
+    hover_render_nonce = hover_render_nonce + 1
+    local n = hover_render_nonce
+    noctalia.runAsync("sleep 0.03", function()
+        if hover_render_nonce == n then
+            last_hover_render_at = noctalia.nowMs()
+            rerender.call()
+        end
+    end)
+end
+
 local function hover_update(slot, hover_state, key)
     local current = view.hover_key[slot]
     if hover_state == "true" then
         if current ~= key then
             view.hover_key[slot] = key
-            rerender.call()
+            hover_render()
         end
     elseif current == key then
         view.hover_key[slot] = nil
-        rerender.call()
+        hover_render()
     end
 end
 

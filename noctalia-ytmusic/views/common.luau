@@ -3,6 +3,23 @@ local state = require("./state.luau")
 local request = require("./actions.luau")
 local rerender = require("./rerender.luau")
 
+-- fileExists is a synchronous host call; on hover every row re-renders, so
+-- memoize existence with a short TTL. Newly-downloaded thumbs and deleted
+-- files self-correct within EXISTS_TTL seconds.
+local exists_cache = {}
+local EXISTS_TTL = 5
+
+local function file_exists_cached(path)
+    local e = exists_cache[path]
+    local now = os.time()
+    if e and (now - e.at) < EXISTS_TTL then
+        return e.ok
+    end
+    local ok = noctalia.fileExists(path)
+    exists_cache[path] = { ok = ok, at = now }
+    return ok
+end
+
 local function fmt_pos(seconds)
     seconds = tonumber(seconds) or 0
     local m = math.floor(seconds / 60)
@@ -23,7 +40,7 @@ local function fmt_count(n)
 end
 
 local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
-    if path and noctalia.fileExists(path) then
+    if path and file_exists_cached(path) then
         return ui.image({ path = path, width = size, height = size, fit = "cover" })
     end
     return ui.row({

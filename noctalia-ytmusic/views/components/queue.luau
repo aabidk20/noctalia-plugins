@@ -8,7 +8,7 @@ local function build_queue()
     local player = state.data.player
     local view = state.view
     local child = {}
-    local PAGE_SIZE = 100
+    local PAGE_SIZE = 50
 
     table.insert(child, ui.label({ text = "QUEUE", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
