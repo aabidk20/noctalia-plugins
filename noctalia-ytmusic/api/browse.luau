@@ -2,13 +2,13 @@
 
 -- browse/home/library endpoints + parse.
 
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "browse")
 
-local utils = require("../utils.luau")
-local sanitize = utils.Utils.sanitize
-local clean_artist = utils.Utils.clean_artist
-local fmt_seconds = utils.Utils.fmt_seconds
+local helpers = require("../utils/helpers.luau")
+local sanitize = helpers.sanitize
+local clean_artist = helpers.clean_artist
+local fmt_seconds = helpers.fmt_seconds
 
 local const = require("./constants.luau")
 local CONTEXT = const.CONTEXT
@@ -24,7 +24,7 @@ local attach_cached_thumbs = thumbs.attach_cached_thumbs
 local cache = require("./cache.luau")
 local save_library_cache = cache.save_library_cache
 
-local types = require("../types.luau")
+local types = require("../utils/types.luau")
 
 local EXPO = {}
 

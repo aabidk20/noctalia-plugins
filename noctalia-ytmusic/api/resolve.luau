@@ -2,7 +2,7 @@
 
 -- stream resolution, audio download/cache, track stats, prefetch.
 
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "resolve")
 
 local const = require("./constants.luau")
@@ -14,7 +14,7 @@ local STATS_CACHE_DIR = const.STATS_CACHE_DIR
 local thumbs = require("./thumbnails.luau")
 local get_thumbnail_path = thumbs.get_thumbnail_path
 
-local types = require("../types.luau")
+local types = require("../utils/types.luau")
 
 local RESOLVE_SCRIPT = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"

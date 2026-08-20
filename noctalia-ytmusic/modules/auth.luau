@@ -1,8 +1,8 @@
 local store = require("./store.luau")
 local api = require("../api.luau")
-local logger = require("../log.luau")
-local Bash = require("../utils.luau").Bash
-local BROWSERS = require("../browsers.luau")
+local logger = require("../utils/log.luau")
+local Bash = require("../utils/bash.luau")
+local BROWSERS = require("../utils/browsers.luau")
 local library = require("./library.luau")
 local home = require("./home.luau")
 

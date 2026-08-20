@@ -2,7 +2,7 @@ local Player = {}
 
 local store = require("./store.luau")
 local api = require("../api.luau")
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local mpv = require("./mpv.luau")
 
 local state = store.state

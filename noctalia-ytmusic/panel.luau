@@ -1,12 +1,12 @@
 local STATE_KEY = "noctalia_ytmusic.state"
 
 local REQ_KEY = "noctalia_ytmusic.request"
-local theme = require("./theme.luau")
-local state = require("./schema.luau").new()
+local theme = require("./utils/theme.luau")
+local state = require("./utils/schema.luau").new()
 
 local req_nonce = os.time() * 1000
 
-local BROWSERS = require("./browsers.luau")
+local BROWSERS = require("./utils/browsers.luau")
 
 local NAV_ITEMS = {
     { id = "home", label = "For you", icon = "home" },

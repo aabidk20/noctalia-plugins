@@ -1,13 +1,13 @@
 --!strict
 --!nolint MultiLineStatement
 
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "search")
 
-local utils = require("../utils.luau")
-local sanitize = utils.Utils.sanitize
-local clean_artist = utils.Utils.clean_artist
-local fmt_seconds = utils.Utils.fmt_seconds
+local helpers = require("../utils/helpers.luau")
+local sanitize = helpers.sanitize
+local clean_artist = helpers.clean_artist
+local fmt_seconds = helpers.fmt_seconds
 
 local const = require("./constants.luau")
 local CONTEXT = const.CONTEXT
@@ -15,7 +15,7 @@ local CONTEXT = const.CONTEXT
 local it = require("./innerTube.luau")
 local innerTube = it.innerTube
 
-local types = require("../types.luau")
+local types = require("../utils/types.luau")
 
 local EXPO = {}
 

@@ -8,7 +8,7 @@ export type Response = {
 
 local bit = bit32
 
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "innerTube")
 
 local const = require("./constants.luau")

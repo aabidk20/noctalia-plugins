@@ -2,7 +2,7 @@ local Playlist = {}
 
 local store = require("./store.luau")
 local api = require("../api.luau")
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local library = require("./library.luau")
 local player = require("./player.luau")
 

@@ -1,6 +1,6 @@
 local STATE = "noctalia_ytmusic.state"
 local REQ = "noctalia_ytmusic.request"
-local theme = require("./theme.luau")
+local theme = require("./utils/theme.luau")
 
 local state = {
     status = "idle",

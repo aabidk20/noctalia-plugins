@@ -2,7 +2,7 @@
 
 -- on-disk cache read/write: library, playlists, session, recent playlists.
 
-local logger = require("../log.luau")
+local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "cache")
 
 local const = require("./constants.luau")
@@ -14,7 +14,7 @@ local SESSION_CACHE_PATH = const.SESSION_CACHE_PATH
 local thumbs = require("./thumbnails.luau")
 local attach_cached_thumbs = thumbs.attach_cached_thumbs
 
-local types = require("../types.luau")
+local types = require("../utils/types.luau")
 
 local EXPO = {}
 

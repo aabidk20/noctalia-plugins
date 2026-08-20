@@ -2,8 +2,8 @@
 
 -- like / unlike endpoints.
 
-local utils = require("../utils.luau")
-local sanitize = utils.Utils.sanitize
+local helpers = require("../utils/helpers.luau")
+local sanitize = helpers.sanitize
 
 local const = require("./constants.luau")
 local CONTEXT = const.CONTEXT

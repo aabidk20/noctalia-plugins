@@ -1,4 +1,4 @@
-local schema = require("../schema.luau")
+local schema = require("../utils/schema.luau")
 
 local STATE_KEY = "noctalia_ytmusic.state"
 

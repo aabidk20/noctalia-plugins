@@ -6,7 +6,7 @@ local state = store.state
 
 local handled_nonce = 0
 
-local logger = require("./log.luau")
+local logger = require("./utils/log.luau")
 local log = logger.module("ytm", "service")
 
 -- Domain logic lives in dedicated backend modules under modules/.

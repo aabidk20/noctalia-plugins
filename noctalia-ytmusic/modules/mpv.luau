@@ -1,5 +1,5 @@
 local Mpv = {}
-local Bash = require("../utils.luau").Bash
+local Bash = require("../utils/bash.luau")
 
 function Mpv.play(url, volume)
     noctalia.writeFile("/tmp/noctalia-ytmusic-url.txt", url)
