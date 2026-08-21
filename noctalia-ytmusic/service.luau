@@ -165,7 +165,16 @@ if api and api.load_cached_library then
     end
 end
 noctalia.runAsync("true", function()
-    if api and api.load_cached_recent_playlists then
+    local const = require("./api/constants.luau")
+    if not noctalia.fileExists(const.COOKIE_PATH) then
+        -- Signed out (e.g. cookies cleared between runs): drop recently-played
+        -- and the saved session from memory AND delete their persisted copies
+        -- so nothing stale resurrects after a later sign-in.
+        state.recent_playlists = {}
+        noctalia.removeFile(const.RECENT_PLAYLISTS_CACHE_PATH)
+        state.player = require("./utils/schema.luau").new().player
+        noctalia.removeFile(const.SESSION_CACHE_PATH)
+    elseif api and api.load_cached_recent_playlists then
         local cached_recent = api.load_cached_recent_playlists()
         if cached_recent then
             state.recent_playlists = cached_recent

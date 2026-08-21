@@ -90,7 +90,10 @@ local function build_sidebar()
 
     table.insert(sidebar_items, ui.separator({ key = "sep-side", color = "outline", spacing = 8 }))
 
-    if type(data.recent_playlists) == "table" and #data.recent_playlists > 0 then
+    -- Hide stale cached history while signed out; reappears reactively once
+    -- cookies land and status flips to ready.
+    if state.logged_in()
+        and type(data.recent_playlists) == "table" and #data.recent_playlists > 0 then
         table.insert(sidebar_items, ui.row({ key = "label-recent", gap = 0, padding = 6, borderWidth = 0 }, {
             ui.label({
                 text = "RECENTLY PLAYED",
