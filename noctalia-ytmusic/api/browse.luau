@@ -34,18 +34,18 @@ local EXPO = {}
 local pending_library: any? = nil
 
 function EXPO.library()
-    log("library called")
-    local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_liked_playlists" }) or ""
-    local auth = build_auth()
-    local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
-    local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
+	log("library called")
+	local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_liked_playlists" }) or ""
+	local auth = build_auth()
+	local auth_header = auth and ('-H "Authorization: ' .. auth .. '"') or ""
+	local origin_header = '-H "Origin: ' .. ORIGIN .. '"'
 
-    local tmp_payload = scratch.path("lib-payload")
-    local tmp_raw = scratch.path("lib-raw")
-    local tmp_out = scratch.path("lib-out")
-    noctalia.writeFile(tmp_payload, body_json)
+	local tmp_payload = scratch.path("lib-payload")
+	local tmp_raw = scratch.path("lib-raw")
+	local tmp_out = scratch.path("lib-out")
+	noctalia.writeFile(tmp_payload, body_json)
 
-    local script = [=[
+	local script = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
 C_ARG=""
 if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
@@ -70,68 +70,74 @@ jq '{
 echo "STATUS=OK"
 ]=]
 
-    network.runAsync(script, function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        if out:find("STATUS=OK") and noctalia.fileExists(tmp_out) then
-            local raw = noctalia.readFile(tmp_out)
-            local data = noctalia.json.decode(raw or "")
-            local raw_pls = (type(data) == "table" and type(data.playlists) == "table") and data.playlists or {}
-            local playlists = {}
-            for _, item in ipairs(raw_pls) do
-                local cnt = tonumber(tostring(item.count_text or ""):match("(%d+)")) or 0
-                table.insert(playlists, {
-                    id = item.id,
-                    title = item.title,
-                    count = cnt,
-                    thumbnail_url = item.thumbnail_url
-                })
-            end
-            if #playlists > 0 then
-                attach_cached_thumbs(playlists)
-                save_library_cache(playlists)
-            end
-            pending_library = playlists
-        else
-            pending_library = {}
-        end
-    end, 15000)
+	network.runAsync(script, function(res)
+		local out = (type(res) == "table" and res.stdout) or ""
+		if out:find("STATUS=OK") and noctalia.fileExists(tmp_out) then
+			local raw = noctalia.readFile(tmp_out)
+			local data = noctalia.json.decode(raw or "")
+			local raw_pls = (type(data) == "table" and type(data.playlists) == "table") and data.playlists or {}
+			local playlists = {}
+			for _, item in ipairs(raw_pls) do
+				local cnt = tonumber(tostring(item.count_text or ""):match("(%d+)")) or 0
+				table.insert(playlists, {
+					id = item.id,
+					title = item.title,
+					count = cnt,
+					thumbnail_url = item.thumbnail_url,
+				})
+			end
+			if #playlists > 0 then
+				attach_cached_thumbs(playlists)
+				save_library_cache(playlists)
+			end
+			pending_library = playlists
+		else
+			pending_library = {}
+		end
+	end, 15000)
 end
 
 function EXPO.library_pending()
-    return pending_library ~= nil
+	return pending_library ~= nil
 end
 
 function EXPO.finish_library(cb: (any?, string?) -> ()?)
-    local playlists = pending_library
-    pending_library = nil
-    if cb then cb(playlists or {}) end
+	local playlists = pending_library
+	pending_library = nil
+	if cb then
+		cb(playlists or {})
+	end
 end
 
-function EXPO.playlist_page(playlist_id: string?, continuation_token: string?, cb: (types.PlaylistPageResult?, string?) -> ())
-    if type(playlist_id) ~= "string" or playlist_id == "" then
-        cb({ tracks = {}, next_token = nil })
-        return
-    end
-    local pid = sanitize(playlist_id)
+function EXPO.playlist_page(
+	playlist_id: string?,
+	continuation_token: string?,
+	cb: (types.PlaylistPageResult?, string?) -> ()
+)
+	if type(playlist_id) ~= "string" or playlist_id == "" then
+		cb({ tracks = {}, next_token = nil })
+		return
+	end
+	local pid = sanitize(playlist_id)
 
-    local is_cont = continuation_token and continuation_token ~= ""
-    local body_json
-    if is_cont then
-        body_json = noctalia.json.encode({ context = CONTEXT.context, continuation = continuation_token }) or ""
-    else
-        body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = pid }) or ""
-    end
+	local is_cont = continuation_token and continuation_token ~= ""
+	local body_json
+	if is_cont then
+		body_json = noctalia.json.encode({ context = CONTEXT.context, continuation = continuation_token }) or ""
+	else
+		body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = pid }) or ""
+	end
 
-    local auth = build_auth()
-    local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
-    local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
+	local auth = build_auth()
+	local auth_header = auth and ('-H "Authorization: ' .. auth .. '"') or ""
+	local origin_header = '-H "Origin: ' .. ORIGIN .. '"'
 
-    local tmp_payload = scratch.path("pl-payload")
-    local tmp_raw = scratch.path("pl-raw")
-    local tmp_out = scratch.path("pl-out")
-    noctalia.writeFile(tmp_payload, body_json)
+	local tmp_payload = scratch.path("pl-payload")
+	local tmp_raw = scratch.path("pl-raw")
+	local tmp_out = scratch.path("pl-out")
+	noctalia.writeFile(tmp_payload, body_json)
 
-    local script = [=[
+	local script = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
 C_ARG=""
 if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
@@ -156,73 +162,100 @@ jq '{
   count_text: ([.. | .musicResponsiveHeaderRenderer? | select(. != null) | (.subtitle?.runs // []) + (.secondSubtitle?.runs // []) | .[]?.text | select(. != null and test("song|track"))] | .[0] // null),
   next_token: ([.. | (.continuationCommand?.token // .nextContinuationData?.continuation) | select(. != null and . != "")] | .[0] // null)
 }' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=["
+echo "BROWSE_OK"
 ]=]
 
-    network.runAsync(script, function()
-        if not noctalia.fileExists(tmp_out) then
-            cb({ tracks = {}, next_token = nil })
-            return
-        end
-        local raw = noctalia.readFile(tmp_out)
-        if not raw or raw == "" then
-            cb({ tracks = {}, next_token = nil })
-            return
-        end
-        local data = noctalia.json.decode(raw)
-        if type(data) == "table" then
-            local tracks = type(data.tracks) == "table" and data.tracks or {}
-            for _, tr in ipairs(tracks) do
-                if tr.duration_text and tr.duration_text ~= "" then
-                    tr.duration = fmt_seconds(tr.duration_text)
-                end
-                tr.artist = clean_artist(tr.artist)
-            end
-            local next_tok = type(data.next_token) == "string" and data.next_token ~= "" and data.next_token or nil
-            local count_text = type(data.count_text) == "string" and data.count_text or ""
-            local count_num = tonumber(count_text:match("(%d+)"))
-            log("jq playlist page got " .. #tracks .. " tracks, next_token=" .. tostring(next_tok ~= nil) .. ", count_num=" .. tostring(count_num))
-            if #tracks > 0 then
-                attach_cached_thumbs(tracks)
-            end
-            cb({ tracks = tracks, next_token = next_tok, total_count = count_num })
-        else
-            cb({ tracks = {}, next_token = nil })
-        end
-    end, 15000)
+	network.runAsync(script, function(res)
+		-- Success token, not file existence: scratch outputs from earlier runs
+		-- must never be mistaken for a fresh response (offline gate skips the
+		-- script but leaves old files behind).
+		local out = (type(res) == "table" and res.stdout) or ""
+		if not out:find("BROWSE_OK", 1, true) or not noctalia.fileExists(tmp_out) then
+			cb({ tracks = {}, next_token = nil })
+			return
+		end
+		local raw = noctalia.readFile(tmp_out)
+		if not raw or raw == "" then
+			cb({ tracks = {}, next_token = nil })
+			return
+		end
+		local data = noctalia.json.decode(raw)
+		if type(data) == "table" then
+			local tracks = type(data.tracks) == "table" and data.tracks or {}
+			-- YT duplicates shelf rows inside one payload; keep first-seen only
+			local seen, uniq = {}, {}
+			for _, tr in ipairs(tracks) do
+				if tr.id and not seen[tr.id] then
+					seen[tr.id] = true
+					table.insert(uniq, tr)
+				end
+			end
+			tracks = uniq
+			for _, tr in ipairs(tracks) do
+				if tr.duration_text and tr.duration_text ~= "" then
+					tr.duration = fmt_seconds(tr.duration_text)
+				end
+				tr.artist = clean_artist(tr.artist)
+			end
+			local next_tok = type(data.next_token) == "string" and data.next_token ~= "" and data.next_token or nil
+			local count_text = type(data.count_text) == "string" and data.count_text or ""
+			local count_num = tonumber(count_text:match("(%d+)"))
+			log(
+				"jq playlist page got "
+					.. #tracks
+					.. " tracks, next_token="
+					.. tostring(next_tok ~= nil)
+					.. ", count_num="
+					.. tostring(count_num)
+			)
+			if #tracks > 0 then
+				attach_cached_thumbs(tracks)
+			end
+			cb({ tracks = tracks, next_token = next_tok, total_count = count_num })
+		else
+			cb({ tracks = {}, next_token = nil })
+		end
+	end, 15000)
 end
 
 function EXPO.load_cached_quick_picks()
-    if not noctalia.fileExists(QUICK_PICKS_CACHE_PATH) then return nil end
-    local raw = noctalia.readFile(QUICK_PICKS_CACHE_PATH)
-    if not raw or raw == "" then return nil end
-    local data = noctalia.json.decode(raw)
-    if type(data) == "table" and #data > 0 then
-        attach_cached_thumbs(data)
-        return data
-    end
-    return nil
+	if not noctalia.fileExists(QUICK_PICKS_CACHE_PATH) then
+		return nil
+	end
+	local raw = noctalia.readFile(QUICK_PICKS_CACHE_PATH)
+	if not raw or raw == "" then
+		return nil
+	end
+	local data = noctalia.json.decode(raw)
+	if type(data) == "table" and #data > 0 then
+		attach_cached_thumbs(data)
+		return data
+	end
+	return nil
 end
 
 function EXPO.save_quick_picks_cache(tracks: { types.Track }?)
-    if type(tracks) ~= "table" or #tracks == 0 then return end
-    local encoded = noctalia.json.encode(tracks)
-    if encoded then
-        noctalia.writeFile(QUICK_PICKS_CACHE_PATH, encoded)
-    end
+	if type(tracks) ~= "table" or #tracks == 0 then
+		return
+	end
+	local encoded = noctalia.json.encode(tracks)
+	if encoded then
+		noctalia.writeFile(QUICK_PICKS_CACHE_PATH, encoded)
+	end
 end
 
 function EXPO.fetch_quick_picks(callback: ((any?, any?) -> ())?)
-    local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_home" }) or ""
-    local auth = build_auth()
-    local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
-    local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
+	local body_json = noctalia.json.encode({ context = CONTEXT.context, browseId = "FEmusic_home" }) or ""
+	local auth = build_auth()
+	local auth_header = auth and ('-H "Authorization: ' .. auth .. '"') or ""
+	local origin_header = '-H "Origin: ' .. ORIGIN .. '"'
 
-    local tmp_payload = scratch.path("qp-payload")
-    local tmp_raw = scratch.path("qp-raw")
-    local tmp_out = scratch.path("qp-out")
-    noctalia.writeFile(tmp_payload, body_json)
+	local tmp_payload = scratch.path("qp-payload")
+	local tmp_raw = scratch.path("qp-raw")
+	local tmp_out = scratch.path("qp-out")
+	noctalia.writeFile(tmp_payload, body_json)
 
-    local script = [=[
+	local script = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
 C_ARG=""
 if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
@@ -255,34 +288,38 @@ jq '{
 echo "STATUS=OK"
 ]=]
 
-    network.runAsync(script, function(res)
-        local out = (type(res) == "table" and res.stdout) or ""
-        if out:find("STATUS=OK") and noctalia.fileExists(tmp_out) then
-            local raw = noctalia.readFile(tmp_out)
-            local data = noctalia.json.decode(raw or "")
-            local tracks = (type(data) == "table" and type(data.tracks) == "table") and data.tracks or {}
-            local mixes = (type(data) == "table" and type(data.mixes) == "table") and data.mixes or {}
-            if #tracks > 0 then
-                attach_cached_thumbs(tracks)
-                EXPO.save_quick_picks_cache(tracks)
-            end
-            if #mixes > 0 then
-                math.randomseed(os.time() + #mixes)
-                for i = #mixes, 2, -1 do
-                    local j = math.random(1, i)
-                    mixes[i], mixes[j] = mixes[j], mixes[i]
-                end
-                -- loop bound N+1 keeps exactly N items after trimming
-                for i = #mixes, 7, -1 do
-                    table.remove(mixes)
-                end
-                attach_cached_thumbs(mixes)
-            end
-            if callback then callback(tracks, mixes) end
-        else
-            if callback then callback({}, {}) end
-        end
-    end, 15000)
+	network.runAsync(script, function(res)
+		local out = (type(res) == "table" and res.stdout) or ""
+		if out:find("STATUS=OK") and noctalia.fileExists(tmp_out) then
+			local raw = noctalia.readFile(tmp_out)
+			local data = noctalia.json.decode(raw or "")
+			local tracks = (type(data) == "table" and type(data.tracks) == "table") and data.tracks or {}
+			local mixes = (type(data) == "table" and type(data.mixes) == "table") and data.mixes or {}
+			if #tracks > 0 then
+				attach_cached_thumbs(tracks)
+				EXPO.save_quick_picks_cache(tracks)
+			end
+			if #mixes > 0 then
+				math.randomseed(os.time() + #mixes)
+				for i = #mixes, 2, -1 do
+					local j = math.random(1, i)
+					mixes[i], mixes[j] = mixes[j], mixes[i]
+				end
+				-- loop bound N+1 keeps exactly N items after trimming
+				for i = #mixes, 7, -1 do
+					table.remove(mixes)
+				end
+				attach_cached_thumbs(mixes)
+			end
+			if callback then
+				callback(tracks, mixes)
+			end
+		else
+			if callback then
+				callback({}, {})
+			end
+		end
+	end, 15000)
 end
 
 return EXPO

@@ -79,8 +79,14 @@ local ACTIONS = {
 	download_track = function(r)
 		local vid = (r.item and r.item.id) or r.id or r.video_id
 		if vid and vid ~= "" then
-			log("download_track: queued for id=" .. tostring(vid))
-			downloader.enqueue(vid, "", r.item)
+			-- Already on disk? ⬇ becomes "add to offline downloads" — no
+			-- re-download, just register metadata and list it.
+			if state.cached_audio_ids[vid] == true then
+				log("download_track: already cached, registering explicit id=" .. tostring(vid))
+				downloader.register_explicit(vid, r.item)
+			else
+				downloader.enqueue(vid, "", r.item)
+			end
 		end
 	end,
 	download_playlist = function(r)

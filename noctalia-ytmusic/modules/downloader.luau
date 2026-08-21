@@ -61,6 +61,28 @@ local function note_offline_row(id, meta)
 	state.offline_tracks = list
 end
 
+-- ⬇ click on an already-cached (⚡) track: no re-download — just mark it as an
+-- explicit download so it lands in Saved Tracks and flips the row to ✓.
+function Downloader.register_explicit(id, meta)
+	if not id or id == "" then
+		return
+	end
+	if state.cached_audio_ids[id] ~= true then
+		return
+	end
+	if not state.offline_meta[id] then
+		note_offline_row(id, meta)
+	end
+	local existing = state.offline_meta[id] or {}
+	remember_saved_meta(id, {
+		title = (meta and meta.title) or existing.title,
+		artist = (meta and meta.artist) or existing.artist,
+		duration = (meta and tonumber(meta.duration)) or existing.duration,
+		thumbnail_url = (meta and meta.thumbnail_url) or existing.thumbnail_url,
+	})
+	publish()
+end
+
 local function pl_done(plid)
 	local is_inflight = false
 	for vid, pid in pairs(inflight) do
