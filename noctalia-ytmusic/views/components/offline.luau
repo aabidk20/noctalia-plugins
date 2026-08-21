@@ -3,7 +3,6 @@ local state = require("../state.luau")
 local request = require("../actions.luau")
 local common = require("../common.luau")
 local rerender = require("../rerender.luau")
-local playlist_comp = require("./playlist.luau")
 
 local PAGE_SIZE = 50
 
@@ -112,9 +111,48 @@ local function build_offline()
 				color = "on_surface_variant",
 			})
 		)
-		for idx, pl in ipairs(downloaded_pls) do
-			table.insert(child, playlist_comp.playlist_row(pl, idx))
+
+		local cards = {}
+		for _, pl in ipairs(downloaded_pls) do
+			local key = "off-pl-" .. tostring(pl.id or "")
+			table.insert(
+				cards,
+				ui.column({
+					key = key,
+					gap = 10,
+					padding = 10,
+					borderWidth = 1,
+					border = "primary/0.4",
+					fill = "primary/0.04",
+					flexGrow = 1,
+					onClick = function()
+						view.hover_key.card = nil
+						state.open_playlist(pl)
+					end,
+					onHover = "onCardHover",
+				}, {
+					common.thumb_or_placeholder(pl.thumb_path, 200, "playlist", 38, "primary", "surface_variant/0.6"),
+					ui.column({ gap = 2, flexGrow = 1 }, {
+						ui.label({
+							text = (pl.title or "Playlist"),
+							fontSize = theme.fontTitle,
+							maxLines = 1,
+							color = "on_surface",
+							flexGrow = 1,
+						}),
+						ui.label({
+							text = (pl.count and pl.count > 0) and (pl.count .. " tracks • offline") or "offline",
+							fontSize = theme.fontTitle,
+							color = "on_surface_variant",
+						}),
+					}),
+				})
+			)
 		end
+		for _, row in ipairs(common.chunk_rows(cards, 6, "off-pl-grid", 14)) do
+			table.insert(child, row)
+		end
+
 		table.insert(child, ui.separator({ key = "sep-off-tracks", color = "outline/0.3" }))
 	end
 
