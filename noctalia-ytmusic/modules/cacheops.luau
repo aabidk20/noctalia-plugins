@@ -50,6 +50,12 @@ function Cache.clear(target)
     ]]):format(target), function()
         -- After clearing, fetch the stats directly
         noctalia.runAsync(STATS_SCRIPT, parse_stats)
+        -- Wiping audio invalidates cached_audio_ids and every offline
+        -- classification derived from it; re-sync so the UI follows.
+        if target == "audio" then
+            local library = require("./library.luau")
+            library.sync_audio_cache()
+        end
     end)
 end
 
