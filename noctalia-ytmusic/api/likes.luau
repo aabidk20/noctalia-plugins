@@ -2,6 +2,9 @@
 
 -- like / unlike endpoints.
 
+local logger = require("../utils/log.luau")
+local log = logger.module("ytapi", "likes")
+
 local helpers = require("../utils/helpers.luau")
 local sanitize = helpers.sanitize
 
@@ -38,17 +41,23 @@ if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
   C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
 fi
 
-curl -s -X POST "https://music.youtube.com/youtubei/v1/like/like?prettyPrint=false" \
+if curl -sf -X POST "https://music.youtube.com/youtubei/v1/like/like?prettyPrint=false" \
   -H "Content-Type: application/json" \
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-like-payload.json" >/dev/null 2>&1
-echo "STATUS=OK"
+  -d @"/tmp/noctalia-ytmusic-like-payload.json" >/dev/null 2>&1; then
+  echo "STATUS=OK"
+else
+  echo "STATUS=FAIL"
+fi
 ]=]
     noctalia.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local ok = out:find("STATUS=OK") ~= nil
+        if not ok then
+            log("like_video FAILED for id=" .. tostring(video_id))
+        end
         if callback then callback(ok) end
     end, 10000)
 end
@@ -76,17 +85,23 @@ if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
   C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
 fi
 
-curl -s -X POST "https://music.youtube.com/youtubei/v1/like/removelike?prettyPrint=false" \
+if curl -sf -X POST "https://music.youtube.com/youtubei/v1/like/removelike?prettyPrint=false" \
   -H "Content-Type: application/json" \
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-unlike-payload.json" >/dev/null 2>&1
-echo "STATUS=OK"
+  -d @"/tmp/noctalia-ytmusic-unlike-payload.json" >/dev/null 2>&1; then
+  echo "STATUS=OK"
+else
+  echo "STATUS=FAIL"
+fi
 ]=]
     noctalia.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local ok = out:find("STATUS=OK") ~= nil
+        if not ok then
+            log("unlike_video FAILED for id=" .. tostring(video_id))
+        end
         if callback then callback(ok) end
     end, 10000)
 end
