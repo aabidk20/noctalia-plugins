@@ -89,6 +89,20 @@ local function build_sidebar()
         end))
     end
 
+    -- Always-visible connectivity cue, independent of which page is open.
+    if data.online == false then
+        table.insert(sidebar_items, ui.row({
+            key = "offline-indicator",
+            gap = 8,
+            align = "center",
+            padding = 6,
+            borderWidth = 0
+        }, {
+            ui.glyph({ name = "wifi-off", size = 15, color = "error" }),
+            ui.label({ text = "Offline mode", fontSize = theme.fontBody, color = "error" })
+        }))
+    end
+
     table.insert(sidebar_items, ui.separator({ key = "sep-side", color = "outline", spacing = 8 }))
 
     -- Hide stale cached history while signed out; reappears reactively once

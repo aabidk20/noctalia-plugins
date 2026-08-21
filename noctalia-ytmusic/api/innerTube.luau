@@ -12,6 +12,7 @@ local logger = require("../utils/log.luau")
 local log = logger.module("ytapi", "innerTube")
 
 local const = require("./constants.luau")
+local network = require("../utils/network.luau")
 local KEY = const.KEY
 local BASE = const.BASE
 local ORIGIN = const.ORIGIN
@@ -162,6 +163,11 @@ local function build_auth(): (string?, string?)
 end
 
 local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> (), defer: boolean?)
+    if not network.isOnline() then
+        log("innerTube " .. endpoint .. ": offline, request dropped")
+        cb(nil, "offline")
+        return
+    end
     local auth, cookie = build_auth()
     if not auth then
         log("innerTube: no SAPISID auth, request dropped")
@@ -175,7 +181,7 @@ local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> 
         return
     end
     log("innerTube POST " .. endpoint .. " body=" .. #payload .. " bytes")
-    local accepted = noctalia.http({
+    local accepted = network.http({
         url = BASE .. endpoint .. "?key=" .. KEY .. "&prettyPrint=false",
         method = "POST",
         body = payload,

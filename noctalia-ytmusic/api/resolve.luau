@@ -14,6 +14,7 @@ local thumbs = require("./thumbnails.luau")
 local get_thumbnail_path = thumbs.get_thumbnail_path
 
 local types = require("../utils/types.luau")
+local network = require("../utils/network.luau")
 
 local RESOLVE_SCRIPT = [=[
 export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
@@ -87,7 +88,7 @@ function EXPO.cache_audio(video_id, callback)
         "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' --cookies '%s' 'https://www.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
         AUDIO_DIR, path, COOKIE_PATH, video_id
     )
-    local launched = noctalia.runAsync(cmd, function(res)
+    local launched = network.runAsync(cmd, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local ok = noctalia.fileExists(path) or out:find("STATUS=OK") ~= nil
         if callback then callback(ok) end
@@ -150,7 +151,7 @@ function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
 
     log("resolving stream URL for id=" .. video_id)
     local script = RESOLVE_SCRIPT:gsub("VIDEO", safe_id)
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = type(res) == "table" and res.stdout or ""
         local raw_url = out:match("URL=([^\n\r]+)")
         local url = sanitize_str(raw_url)
@@ -174,6 +175,8 @@ end
 
 function EXPO.prefetch_track(item: types.Track)
     if type(item) ~= "table" or not item.id or item.id == "" then return end
+    -- Prefetching is pure network work; skip entirely when offline.
+    if not network.isOnline() then return end
     local id = item.id
 
     if item.thumbnail_url or id ~= "" then

@@ -1,6 +1,7 @@
 local store = require("./store.luau")
 local api = require("../api.luau")
 local logger = require("../utils/log.luau")
+local network = require("../utils/network.luau")
 local Bash = require("../utils/bash.luau")
 local BROWSERS = require("../utils/browsers.luau")
 local library = require("./library.luau")
@@ -28,6 +29,12 @@ end
 function Auth.extract_cookies(browser)
     if extraction_active then return end
     if type(browser) ~= "string" or browser == "" then return end
+    if not network.isOnline() then
+        state.status = "error"
+        state.last_error = "You're offline — sign-in needs an internet connection"
+        store.publish()
+        return
+    end
     local label = Auth.browser_label(browser)
     extraction_active = true
     state.extracting = true

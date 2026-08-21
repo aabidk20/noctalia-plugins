@@ -6,6 +6,7 @@ local const = require("./constants.luau")
 local THUMB_DIR = const.THUMB_DIR
 
 local scratch = require("../utils/scratch.luau")
+local network = require("../utils/network.luau")
 local Bash = require("../utils/bash.luau")
 
 local EXPO = {}
@@ -20,7 +21,7 @@ function EXPO.get_thumbnail_path(id: string, url: string?, callback: ((string) -
     end
 
     if type(url) == "string" and url ~= "" then
-        noctalia.runAsync("mkdir -p " .. Bash.sh_quote(THUMB_DIR) .. " && curl -s -L -o " .. Bash.sh_quote(path) .. " " .. Bash.sh_quote(url), function()
+        network.runAsync("mkdir -p " .. Bash.sh_quote(THUMB_DIR) .. " && curl -s -L -o " .. Bash.sh_quote(path) .. " " .. Bash.sh_quote(url), function()
             if noctalia.fileExists(path) and callback then
                 callback(path)
             end
@@ -89,7 +90,7 @@ fi
 echo "THUMBS_DONE=1"
 ]=]):format(THUMB_DIR, configFile)
 
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         if out:find("THUMBS_DONE=1") then
             for _, m in ipairs(missing) do

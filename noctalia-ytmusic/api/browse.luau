@@ -17,6 +17,7 @@ local COOKIE_PATH = const.COOKIE_PATH
 local QUICK_PICKS_CACHE_PATH = const.QUICK_PICKS_CACHE_PATH
 
 local scratch = require("../utils/scratch.luau")
+local network = require("../utils/network.luau")
 
 local it = require("./innerTube.luau")
 local build_auth = it.build_auth
@@ -69,7 +70,7 @@ jq '{
 echo "STATUS=OK"
 ]=]
 
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         if out:find("STATUS=OK") and noctalia.fileExists(tmp_out) then
             local raw = noctalia.readFile(tmp_out)
@@ -157,7 +158,7 @@ jq '{
 }' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=["
 ]=]
 
-    noctalia.runAsync(script, function()
+    network.runAsync(script, function()
         if not noctalia.fileExists(tmp_out) then
             cb({ tracks = {}, next_token = nil })
             return
@@ -254,7 +255,7 @@ jq '{
 echo "STATUS=OK"
 ]=]
 
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         if out:find("STATUS=OK") and noctalia.fileExists(tmp_out) then
             local raw = noctalia.readFile(tmp_out)

@@ -8,6 +8,7 @@ local handled_nonce = 0
 local probe_tick = 19
 
 local logger = require("./utils/log.luau")
+local network = require("./utils/network.luau")
 local log = logger.module("ytm", "service")
 
 -- Domain logic lives in dedicated backend modules under modules/.
@@ -172,6 +173,7 @@ function update()
                 local now_online = out:find("NET=UP", 1, true) ~= nil
                 if now_online ~= state.online then
                     state.online = now_online
+                    network.setOnline(now_online)
                     store.publish()
                     if not now_online then
                         noctalia.notify("Noctalia YT Music",

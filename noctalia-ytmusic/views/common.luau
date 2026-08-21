@@ -71,6 +71,16 @@ local function icon_btn(glyph, onClick, variant)
 end
 
 local function chunk_rows(cells, per_row, key_prefix, gap)
+    -- Pad the final row with invisible stretch cells so short rows keep the
+    -- same card width as full ones instead of growing to fill the panel.
+    while #cells % per_row ~= 0 do
+        table.insert(cells, ui.column({
+            key = key_prefix .. "-pad-" .. (#cells + 1),
+            flexGrow = 1,
+            borderWidth = 0
+        }))
+    end
+
     local rows = {}
     for i = 1, #cells, per_row do
         local row_children = { cells[i] }

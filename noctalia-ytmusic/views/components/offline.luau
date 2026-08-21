@@ -115,23 +115,31 @@ local function build_offline()
 		local cards = {}
 		for _, pl in ipairs(downloaded_pls) do
 			local key = "off-pl-" .. tostring(pl.id or "")
+			local card_hovered = (view.hover_key.card == key)
 			table.insert(
 				cards,
 				ui.column({
 					key = key,
-					width = 200,
 					gap = 10,
 					padding = 10,
 					borderWidth = 1,
 					border = "primary/0.4",
-					fill = "primary/0.04",
+					fill = card_hovered and "primary/0.12" or "primary/0.04",
+					flexGrow = 1,
 					onClick = function()
 						view.hover_key.card = nil
 						state.open_playlist(pl)
 					end,
 					onHover = "onCardHover",
 				}, {
-					common.thumb_or_placeholder(pl.thumb_path, 200, "playlist", 38, "primary", "surface_variant/0.6"),
+					common.thumb_or_placeholder(
+						pl.thumb_path,
+						200,
+						"playlist",
+						38,
+						"primary",
+						card_hovered and "primary/0.2" or "surface_variant/0.6"
+					),
 					ui.column({ gap = 2, flexGrow = 1 }, {
 						ui.label({
 							text = (pl.title or "Playlist"),
@@ -141,7 +149,7 @@ local function build_offline()
 							flexGrow = 1,
 						}),
 						ui.label({
-							text = (pl.count and pl.count > 0) and (pl.count .. " tracks • offline") or "offline",
+							text = (pl.count and pl.count > 0) and (pl.count .. " tracks") or "Playlist",
 							fontSize = theme.fontTitle,
 							color = "on_surface_variant",
 						}),

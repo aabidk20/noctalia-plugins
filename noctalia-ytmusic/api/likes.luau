@@ -13,6 +13,7 @@ local CONTEXT = const.CONTEXT
 local ORIGIN = const.ORIGIN
 local COOKIE_PATH = const.COOKIE_PATH
 
+local network = require("../utils/network.luau")
 local scratch = require("../utils/scratch.luau")
 
 local it = require("./innerTube.luau")
@@ -54,7 +55,7 @@ else
   echo "STATUS=FAIL"
 fi
 ]=]
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local ok = out:find("STATUS=OK") ~= nil
         if not ok then
@@ -98,7 +99,7 @@ else
   echo "STATUS=FAIL"
 fi
 ]=]
-    noctalia.runAsync(script, function(res)
+    network.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""
         local ok = out:find("STATUS=OK") ~= nil
         if not ok then
