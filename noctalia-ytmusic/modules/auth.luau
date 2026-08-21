@@ -109,9 +109,9 @@ function Auth.load_cached_cookies()
                 if state.status_text == "Not logged in" then
                     state.status_text = string.format("Loaded %d saved YouTube cookies", kept)
                 end
-if api and api.invalidate_auth then
-                api.invalidate_auth()
-            end
+                if api and api.invalidate_auth then
+                    api.invalidate_auth()
+                end
             if api and api.load_cached_playlist then
                 local vllm = api.load_cached_playlist("VLLM")
                     if vllm then library.sync_liked_tracks(vllm) end

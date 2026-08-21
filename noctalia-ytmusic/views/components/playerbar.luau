@@ -95,7 +95,6 @@ local function build_player_bar()
     local slider_val = tonumber((is_drag_active and view.seek_drag_state.position) or position) or 0
 
     local is_loading = (state.data.player.status == "loading")
-    local is_playing = (state.data.player.status == "playing")
     local play_glyph = is_loading and "loader" or (is_playing and "player-pause" or "player-play")
     local shuffle_active = (state.data.player.shuffle == true)
     local rep_mode = state.data.player.repeat_mode or "off"
