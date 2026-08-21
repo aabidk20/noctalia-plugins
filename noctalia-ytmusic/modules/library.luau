@@ -14,6 +14,44 @@ local Library = {}
 local auditing = false
 local audit_pending = false
 
+-- Saved-track metadata persistence (offline_meta.json): standalone
+-- downloads keep their title/artist here so restarts stay labeled.
+local meta_loaded = false
+
+function Library.load_offline_meta()
+	if meta_loaded then
+		return
+	end
+	meta_loaded = true
+	if not noctalia.fileExists(const.OFFLINE_META_PATH) then
+		return
+	end
+	local raw = noctalia.readFile(const.OFFLINE_META_PATH)
+	local data = raw and noctalia.json.decode(raw)
+	if type(data) == "table" then
+		state.offline_meta = data
+		local n = 0
+		for _ in pairs(data) do
+			n = n + 1
+		end
+		log("offline_meta: loaded " .. n .. " entries")
+	else
+		log("offline_meta: decode failed, starting fresh")
+	end
+end
+
+function Library.save_offline_meta()
+	if type(state.offline_meta) ~= "table" then
+		return
+	end
+	local encoded = noctalia.json.encode(state.offline_meta)
+	if encoded then
+		noctalia.writeFile(const.OFFLINE_META_PATH, encoded)
+	else
+		log("offline_meta: encode failed, not saved")
+	end
+end
+
 -- One pass over every known playlist cache that simultaneously:
 --  1. marks fully-downloaded playlists (downloaded_playlist_ids)
 --  2. collects metadata for any track seen in those caches
@@ -83,6 +121,19 @@ function Library.audit_downloaded_playlists()
 			return (a.added_at or 0) > (b.added_at or 0)
 		end)
 		state.offline_tracks = offline
+
+		-- Prune metadata whose audio vanished (e.g. Clear Audio) so the
+		-- persisted file cannot grow stale entries forever.
+		local pruned = false
+		for vid in pairs(state.offline_meta) do
+			if not cached[vid] then
+				state.offline_meta[vid] = nil
+				pruned = true
+			end
+		end
+		if pruned then
+			Library.save_offline_meta()
+		end
 
 		log("audit_downloaded_playlists: " .. done .. " fully downloaded, " .. #offline .. " saved tracks")
 		auditing = false
