@@ -76,11 +76,10 @@ local function on_nav(id)
     if id == "settings" then
         request("fetch_cache_stats")
     end
-    if id == "offline" then
-        view.offline_view_page = 0
-        view.offline_filter = ""
-        request("fetch_offline")
-    end
+	if id == "offline" then
+		view.offline_view_page = 0
+		request("fetch_offline")
+	end
     rerender.call()
 end
 

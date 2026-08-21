@@ -14,14 +14,6 @@ local function build_offline()
 	local view = state.view
 	local child = {}
 
-	local filter = string.lower(view.offline_filter or "")
-	local function matches(text)
-		if filter == "" then
-			return true
-		end
-		return string.find(string.lower(tostring(text or "")), filter, 1, true) ~= nil
-	end
-
 	local downloaded_pls, seen_pid = {}, {}
 	local function add_source(list)
 		if type(list) ~= "table" then
@@ -34,7 +26,6 @@ local function build_offline()
 				and not seen_pid[pid]
 				and data.downloaded_playlist_ids
 				and data.downloaded_playlist_ids[pid]
-				and matches(pl.title)
 			then
 				seen_pid[pid] = true
 				table.insert(downloaded_pls, pl)
@@ -44,17 +35,7 @@ local function build_offline()
 	add_source(data.library)
 	add_source(data.recent_playlists)
 
-	local all_tracks = data.offline_tracks or {}
-	local tracks = {}
-	if filter == "" then
-		tracks = all_tracks
-	else
-		for _, t in ipairs(all_tracks) do
-			if matches(t.title) or matches(t.artist) then
-				table.insert(tracks, t)
-			end
-		end
-	end
+	local tracks = data.offline_tracks or {}
 	local n_pls, n_tr = #downloaded_pls, #tracks
 
 	table.insert(
@@ -70,20 +51,6 @@ local function build_offline()
 				fontSize = theme.fontTitle,
 				color = "on_surface_variant",
 			}),
-		})
-	)
-
-	table.insert(
-		child,
-		ui.input({
-			key = "offline-filter",
-			placeholder = "Filter downloads",
-			value = view.offline_filter or "",
-			onChange = function(val)
-				view.offline_filter = val or ""
-				view.offline_view_page = 0
-				rerender.call()
-			end,
 		})
 	)
 
