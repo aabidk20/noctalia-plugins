@@ -119,12 +119,12 @@ local function build_offline()
 				cards,
 				ui.column({
 					key = key,
+					width = 200,
 					gap = 10,
 					padding = 10,
 					borderWidth = 1,
 					border = "primary/0.4",
 					fill = "primary/0.04",
-					flexGrow = 1,
 					onClick = function()
 						view.hover_key.card = nil
 						state.open_playlist(pl)
