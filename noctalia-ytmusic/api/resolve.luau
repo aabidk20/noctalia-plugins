@@ -46,7 +46,6 @@ end
 local EXPO = {}
 
 local stream_cache = {}
-local prefetching_ids = {}
 local resolving_in_flight = {}
 
 function EXPO.get_audio_cache_path(video_id: string): string?
@@ -174,11 +173,8 @@ function EXPO.prefetch_track(item: types.Track)
 
     local cached = stream_cache[id]
     if not cached or (os.time() - cached.timestamp) >= 7200 then
-        prefetching_ids[id] = true
         log("prefetching stream URL into memory for id=" .. id)
-        EXPO.resolve_stream(id, function()
-            prefetching_ids[id] = nil
-        end)
+        EXPO.resolve_stream(id, nil)
     end
 end
 

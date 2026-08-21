@@ -104,9 +104,6 @@ function Playlist.play(pid, title)
         state.playlist.tracks = {}
     end
     store.publish()
-    if api and api.playlist_tracks then
-        api.playlist_tracks(pid)
-    end
 end
 
 -- hard refresh of current playlist (refresh_playlist)

@@ -217,7 +217,6 @@ local function innerTube(endpoint: string, request: any, cb: (any?, string?) -> 
     end
 end
 
-EXPO.sha1 = sha1
 EXPO.build_auth = build_auth
 EXPO.innerTube = innerTube
 
