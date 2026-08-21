@@ -11,6 +11,12 @@ local log = logger.module("ytm", "player")
 local publish = store.publish
 
 local stream_generation = 0
+
+-- Shuffle memory: indices already played in the current pass. Reset when the
+-- queue size changes or shuffle is re-enabled, and once every index has been
+-- played so a new pass can begin.
+local shuffle_played = {}
+local shuffle_queue_n = 0
 local start_stream
 
 local function player_set(item, stream_url)
@@ -199,12 +205,28 @@ function Player.next(is_natural_end)
     end
 
     if state.player.shuffle and #state.player.queue > 1 then
-        math.randomseed(os.time())
-        local rand_idx = math.random(1, #state.player.queue)
-        if rand_idx == state.player.index then
-            rand_idx = (rand_idx % #state.player.queue) + 1
+        local total = #state.player.queue
+        if shuffle_queue_n ~= total then
+            shuffle_played = {}
+            shuffle_queue_n = total
         end
-        Player.play_index(rand_idx)
+        local candidates = {}
+        for i = 1, total do
+            if i ~= state.player.index and not shuffle_played[i] then
+                table.insert(candidates, i)
+            end
+        end
+        if #candidates == 0 then
+            -- full pass done: start over, still never repeating the current track
+            shuffle_played = {}
+            for i = 1, total do
+                if i ~= state.player.index then table.insert(candidates, i) end
+            end
+        end
+        local pick = candidates[math.random(#candidates)]
+        shuffle_played[pick] = true
+        log("next: shuffle pick " .. pick .. "/" .. total)
+        Player.play_index(pick)
         return
     end
 
@@ -276,6 +298,7 @@ end
 
 function Player.toggle_shuffle()
     state.player.shuffle = not state.player.shuffle
+    shuffle_played = {}
     log("toggle_shuffle: " .. tostring(state.player.shuffle))
     publish()
 end
