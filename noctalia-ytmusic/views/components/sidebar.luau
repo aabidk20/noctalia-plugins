@@ -5,6 +5,7 @@ local NAV_ITEMS = {
     { id = "home", label = "For you", icon = "home" },
     { id = "discover", label = "Search", icon = "search" },
     { id = "queue", label = "Queue", icon = "library" },
+    { id = "offline", label = "Offline", icon = "download" },
     { id = "settings", label = "Settings", icon = "settings" }
 }
 

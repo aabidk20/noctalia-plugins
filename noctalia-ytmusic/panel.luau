@@ -10,6 +10,7 @@ local discover_comp = require("./views/components/discover.luau")
 local playlist_comp = require("./views/components/playlist.luau")
 local queue_comp = require("./views/components/queue.luau")
 local settings_comp = require("./views/components/settings.luau")
+local offline_comp = require("./views/components/offline.luau")
 
 local function build_content()
     local content = {}
@@ -18,7 +19,8 @@ local function build_content()
         playlist = playlist_comp.build,
         discover = discover_comp.build,
         queue = queue_comp.build,
-        settings = settings_comp.build
+        settings = settings_comp.build,
+        offline = offline_comp.build
     }
 
     local builder = page_builders[state.view.content_page]

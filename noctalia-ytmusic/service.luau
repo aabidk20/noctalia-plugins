@@ -113,6 +113,14 @@ local ACTIONS = {
     fetch_cache_stats = function(r)
         cacheops.fetch_stats()
     end,
+    fetch_offline = function(r)
+        library.sync_audio_cache()
+        if api and api.ensure_thumbnails and type(state.offline_tracks) == "table" and #state.offline_tracks > 0 then
+            noctalia.runAsync("true", function()
+                api.ensure_thumbnails(state.offline_tracks, store.publish, "offline")
+            end)
+        end
+    end,
     clear_cache = function(r)
         cacheops.clear(r.target)
     end,

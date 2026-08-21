@@ -12,6 +12,7 @@ local view = {
     playlist_view_page = 0,
     playlist_pending_advance = false,
     queue_view_page = 0,
+    offline_view_page = 0,
     loading_track_id = nil,
     hover_key = { sidebar = nil, track = nil, card = nil },
     seek_drag_state = nil,
@@ -74,6 +75,10 @@ local function on_nav(id)
     end
     if id == "settings" then
         request("fetch_cache_stats")
+    end
+    if id == "offline" then
+        view.offline_view_page = 0
+        request("fetch_offline")
     end
     rerender.call()
 end
