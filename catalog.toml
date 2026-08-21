@@ -1,7 +1,7 @@
 [[plugin]]
 id           = "aabidk20/noctalia-ytmusic"
 name         = "Noctalia YT Music"
-version      = "0.2.0"
+version      = "0.2.1"
 author       = "Aabid"
 license      = "MIT"
 icon         = "music"
