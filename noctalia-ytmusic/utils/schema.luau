@@ -33,6 +33,7 @@ local function new()
         cached_audio_ids = {},
         downloaded_playlist_ids = {},
         downloading_playlist_ids = {},
+        offline_tracks = {},
         quick_picks = {},
         refreshing_quick_picks = false,
         home_mixes = {},
