@@ -242,7 +242,7 @@ jq '{
     artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
     duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
     thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(.id != "" and .title != "")] | unique_by(.id) | .[0:20],
+  } | select(.id != "" and .title != "")] | unique_by(.id) | .[0:15],
   mixes: [.. | select(.musicTwoRowItemRenderer? != null) | .musicTwoRowItemRenderer | {
     id: (.navigationEndpoint.browseEndpoint.browseId // .navigationEndpoint.watchEndpoint.playlistId // ""),
     title: (.title.runs[0].text // ""),
@@ -271,6 +271,7 @@ echo "STATUS=OK"
                     local j = math.random(1, i)
                     mixes[i], mixes[j] = mixes[j], mixes[i]
                 end
+                -- loop bound N+1 keeps exactly N items after trimming
                 for i = #mixes, 7, -1 do
                     table.remove(mixes)
                 end

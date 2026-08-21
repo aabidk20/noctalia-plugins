@@ -15,7 +15,8 @@ local view = {
     loading_track_id = nil,
     hover_key = { sidebar = nil, track = nil, card = nil },
     seek_drag_state = nil,
-    vol_drag_state = nil
+    vol_drag_state = nil,
+    home_library_ready = false
 }
 
 local function logged_in()
@@ -67,6 +68,9 @@ local function on_nav(id)
     view.content_page = id
     if id ~= "playlist" then
         data.playlist.id = ""
+    end
+    if id == "home" then
+        view.home_library_ready = false
     end
     if id == "settings" then
         request("fetch_cache_stats")

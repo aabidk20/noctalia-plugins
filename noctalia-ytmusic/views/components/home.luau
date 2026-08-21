@@ -146,6 +146,20 @@ local function build_home()
             fontSize = theme.fontBody,
             color = "on_surface_variant"
         }))
+    elseif not view.home_library_ready then
+        -- First paint on home defers the card grid (dozens of cold fileExists
+        -- probes + node building) by one tick so the panel opens instantly.
+        noctalia.runAsync("true", function()
+            if not view.home_library_ready then
+                view.home_library_ready = true
+                rerender.call()
+            end
+        end)
+        table.insert(feed, ui.label({
+            text = "Loading your playlists...",
+            fontSize = theme.fontBody,
+            color = "on_surface_variant"
+        }))
     else
         local cards = {}
         for _, pl in ipairs(data.library) do

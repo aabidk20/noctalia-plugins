@@ -84,6 +84,9 @@ function onCardHover(hover_state, key) state.hover_update("card", hover_state, k
 function onTrackHover(hover_state, key) state.hover_update("track", hover_state, key) end
 
 function onOpen(_context)
+    -- home_library_ready is deliberately NOT reset here: probes showed a
+    -- false->true flip re-materializes the whole panel twice per open, which
+    -- costs more than building the library grid inline. Sticky = single pass.
     local curr = noctalia.state.get(STATE_KEY)
     if curr then state.apply(curr) end
 end
