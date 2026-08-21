@@ -146,12 +146,32 @@ function Player.play_next(item)
     end
 end
 
+-- Play immediately while preserving the upcoming queue: the suggestion slots
+-- in right after the current track and starts, so everything queued below
+-- keeps its order.
+function Player.play_now(item)
+    if not item or not item.id or item.id == "" then return end
+    local insert_at = 1
+    if state.player.status ~= "stopped" and #state.player.queue > 0 then
+        insert_at = math.min((state.player.index or 0) + 1, #state.player.queue + 1)
+    end
+    table.insert(state.player.queue, insert_at, {
+        id = item.id,
+        title = item.title,
+        artist = item.artist or "",
+        duration = tonumber(item.duration) or 0,
+        thumbnail_url = item.thumbnail_url,
+        thumb_path = item.thumb_path
+    })
+    log("play_now: inserted '" .. tostring(item.title) .. "' at queue position " .. insert_at)
+    Player.play_index(insert_at)
+end
+
 function Player.stop()
     mpv.kill()
     state.player.status = "stopped"
     state.player.queue = {}
-    original_queue = nil
-    state.player.index = 0
+    original_queue = nil    state.player.index = 0
     state.player.title = ""
     state.player.artist = ""
     state.player.position = 0

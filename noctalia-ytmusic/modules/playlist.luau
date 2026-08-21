@@ -14,6 +14,10 @@ local log = logger.module("ytm", "playlist")
 -- so a slow fetch for playlist A can never render into (or cache under) B.
 local open_seq = 0
 
+-- Forward declaration: Playlist.open fires one extra hop through do_fetch to
+-- collect YT's suggestion shelf once all real tracks are loaded.
+local do_fetch
+
 local function load_cached(pid)
     if api and api.load_cached_playlist then
         return api.load_cached_playlist(pid)
@@ -66,6 +70,7 @@ function Playlist.open(pid, title)
 
     state.playlist.next_token = nil
     state.playlist.tracks = {}
+    state.playlist.suggestions = {}
     state.playlist.fetching = true
     store.publish()
 
@@ -90,6 +95,13 @@ function Playlist.open(pid, title)
             local total = tonumber(state.playlist.count) or 0
             if total > 0 and #state.playlist.tracks >= total then
                 state.playlist.next_token = nil
+                -- One hop collects the suggestion shelf for the bottom section;
+                -- with zero slots left, every row lands in suggestions.
+                if res.next_token and res.next_token ~= "" then
+                    noctalia.runAsync("true", function()
+                        do_fetch(pid, res.next_token)
+                    end)
+                end
             end
             store.publish()
             save_cache(pid)
@@ -118,6 +130,9 @@ function Playlist.play(pid, title)
     local cached = load_cached(pid)
     if cached and #cached > 0 then
         state.playlist.tracks = cached
+        -- Mark this as the playing context so the sidebar highlights it,
+        -- exactly like playing a single row does.
+        state.player.source_playlist = pid
         player.play_index(1, cached)
     else
         state.playlist.tracks = {}
@@ -133,6 +148,7 @@ function Playlist.refresh(pid)
     local seq = open_seq
     state.playlist.id = pid
     state.playlist.tracks = {}
+    state.playlist.suggestions = {}
     state.playlist.next_token = nil
     state.playlist.fetching = true
     store.publish()
@@ -160,9 +176,25 @@ function Playlist.refresh(pid)
 end
 
 -- fetch next cursor page (fetch_next_page)
-local function do_fetch(pid, fetch_token)
+do_fetch = function(pid, fetch_token)
     api.playlist_page(pid, fetch_token, function(res)
         if state.playlist.id ~= pid then return end
+
+        -- YT Music appends a suggestion shelf to playlist continuations; only
+        -- the first (declared_count - loaded) rows are real playlist members,
+        -- everything after goes into the suggestions section instead.
+        local total = tonumber(state.playlist.count) or 0
+        local incoming = res.tracks or {}
+        local real, suggested = {}, {}
+        if total > 0 then
+            local room = math.max(0, total - #state.playlist.tracks)
+            for i, t in ipairs(incoming) do
+                if i <= room then table.insert(real, t) else table.insert(suggested, t) end
+            end
+        else
+            real = incoming
+        end
+
         local existing = {}
         for _, t in ipairs(state.playlist.tracks) do
             if t.id then existing[t.id] = true end
@@ -170,25 +202,38 @@ local function do_fetch(pid, fetch_token)
 
         local added_count = 0
         local queue_sync = (state.player.source_playlist == pid)
-        if res.tracks and #res.tracks > 0 then
-            for _, tr in ipairs(res.tracks) do
-                if tr.id and not existing[tr.id] then
-                    table.insert(state.playlist.tracks, tr)
-                    if queue_sync then
-                        player.append_to_queue(tr)
-                    end
-                    existing[tr.id] = true
-                    added_count = added_count + 1
+        for _, tr in ipairs(real) do
+            if tr.id and not existing[tr.id] then
+                table.insert(state.playlist.tracks, tr)
+                if queue_sync then
+                    player.append_to_queue(tr)
+                end
+                existing[tr.id] = true
+                added_count = added_count + 1
+            end
+        end
+
+        if #suggested > 0 then
+            -- YT duplicates every row of the suggestion shelf within a single
+            -- payload; keep the first occurrence of each videoId and skip
+            -- anything already listed as a real playlist member.
+            local seen = {}
+            for _, t in ipairs(state.playlist.tracks) do
+                if t.id then seen[t.id] = true end
+            end
+            local uniq = {}
+            for _, t in ipairs(suggested) do
+                if t.id and not seen[t.id] then
+                    seen[t.id] = true
+                    table.insert(uniq, t)
                 end
             end
+            state.playlist.suggestions = uniq
         end
 
         local new_token = res.next_token
         local token_valid = (new_token and new_token ~= "" and new_token ~= fetch_token)
 
-        -- Declared count reached: stop here, drop the token. Anything beyond
-        -- is YT's suggestion shelf, not playlist members.
-        local total = tonumber(state.playlist.count) or 0
         if total > 0 and #state.playlist.tracks >= total then
             log("fetch_next_page: declared count " .. total .. " reached, dropping continuation")
             state.playlist.next_token = nil

@@ -37,6 +37,9 @@ local ACTIONS = {
     play_next = function(r)
         player.play_next(r.item or {})
     end,
+    play_suggestion = function(r)
+        player.play_now(r.item or {})
+    end,
     play_queue_index = function(r)
         player.play_index(r.index or 1)
     end,

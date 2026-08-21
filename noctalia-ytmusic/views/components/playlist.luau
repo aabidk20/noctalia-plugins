@@ -204,6 +204,25 @@ local function build_playlist_view()
         }, page_controls))
     end
 
+    -- YT's suggestion shelf for this playlist: rendered outside pagination,
+    -- clicking a row plays it now while the rest of the queue continues.
+    local sugg = pl.suggestions or {}
+    if #sugg > 0 then
+        table.insert(tracks, ui.row({ key = "spacer-suggestions", height = 6, borderWidth = 0 }))
+        table.insert(tracks, ui.separator({ key = "sep-suggestions", color = "outline/0.3" }))
+        table.insert(tracks, ui.label({
+            text = "SUGGESTED TRACKS",
+            fontSize = theme.fontHeading,
+            fontWeight = "bold",
+            color = "on_surface_variant"
+        }))
+        for si, s in ipairs(sugg) do
+            table.insert(tracks, common.media_row(s, "sug-" .. si, function()
+                request("play_suggestion", { item = s })
+            end))
+        end
+    end
+
     table.insert(child, ui.column({ key = "pl-track-list", gap = 0, borderWidth = 0 }, tracks))
 
     return child

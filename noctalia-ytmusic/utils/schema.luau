@@ -28,7 +28,7 @@ local function new()
         search = { query = "", type = "top", results = {}, pending = false },
         library = {},
         recent_playlists = {},
-        playlist = { id = "", title = "", tracks = {} },
+        playlist = { id = "", title = "", tracks = {}, suggestions = {} },
         liked_ids = {},
         cached_audio_ids = {},
         downloaded_playlist_ids = {},
