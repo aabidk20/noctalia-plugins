@@ -147,6 +147,9 @@ local function build_playlist_view()
         local has_prev = (view.playlist_view_page > 0)
         local has_next_page = (view.playlist_view_page < total_pages - 1)
         local can_fetch_more = (pl.next_token and pl.next_token ~= "")
+            -- YT hands out continuations even for fully-loaded lists; once the
+            -- declared count is on screen there is nothing real left to fetch
+            and not ((pl.count or 0) > 0 and #pl.tracks >= pl.count)
         local has_next = has_next_page or can_fetch_more
 
         local page_controls = {}

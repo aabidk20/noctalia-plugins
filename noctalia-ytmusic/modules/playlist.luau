@@ -84,6 +84,13 @@ function Playlist.open(pid, title)
                 if pid == "VLLM" then library.sync_liked_tracks(res.tracks) end
                 state.playlist.tracks = merge_keep_existing(state.playlist.tracks, res.tracks)
             end
+            -- YT Music attaches continuations even when the whole list fits one
+            -- page (they lead to suggestions); once the declared count is met,
+            -- there is nothing real left to paginate.
+            local total = tonumber(state.playlist.count) or 0
+            if total > 0 and #state.playlist.tracks >= total then
+                state.playlist.next_token = nil
+            end
             store.publish()
             save_cache(pid)
             ensure_thumbs("playlist")
@@ -136,8 +143,15 @@ function Playlist.refresh(pid)
                 return
             end
             state.playlist.fetching = false
+            if res.total_count and res.total_count > 0 then
+                state.playlist.count = res.total_count
+            end
             state.playlist.next_token = res.next_token
             state.playlist.tracks = res.tracks or {}
+            local total = tonumber(state.playlist.count) or 0
+            if total > 0 and #state.playlist.tracks >= total then
+                state.playlist.next_token = nil
+            end
             save_cache(pid)
             store.publish()
             ensure_thumbs("playlist")
@@ -172,6 +186,19 @@ local function do_fetch(pid, fetch_token)
         local new_token = res.next_token
         local token_valid = (new_token and new_token ~= "" and new_token ~= fetch_token)
 
+        -- Declared count reached: stop here, drop the token. Anything beyond
+        -- is YT's suggestion shelf, not playlist members.
+        local total = tonumber(state.playlist.count) or 0
+        if total > 0 and #state.playlist.tracks >= total then
+            log("fetch_next_page: declared count " .. total .. " reached, dropping continuation")
+            state.playlist.next_token = nil
+            state.playlist.fetching = false
+            store.publish()
+            save_cache(pid)
+            ensure_thumbs("playlist")
+            return
+        end
+
         if added_count == 0 and token_valid then
             log("fetch_next_page: all duplicates, skipping to next page")
             noctalia.runAsync("true", function()
@@ -198,6 +225,8 @@ function Playlist.fetch_next_page(pid, token)
     pid = pid or state.playlist.id
     token = token or state.playlist.next_token
     if not pid or not token or token == "" or state.playlist.fetching then return end
+    local total = tonumber(state.playlist.count) or 0
+    if total > 0 and #state.playlist.tracks >= total then return end
     if not (api and api.playlist_page) then return end
     state.playlist.fetching = true
     log("fetch_next_page for pid='" .. pid .. "'")
