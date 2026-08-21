@@ -78,6 +78,7 @@ local function on_nav(id)
     end
     if id == "offline" then
         view.offline_view_page = 0
+        view.offline_filter = ""
         request("fetch_offline")
     end
     rerender.call()
