@@ -58,7 +58,7 @@ function Library.audit_downloaded_playlists()
         local offline = {}
         for vid in pairs(cached) do
             if not member_ids[vid] then
-                local m = meta[vid] or {}
+                local m = meta[vid] or state.offline_meta[vid] or {}
                 local info = noctalia.fileInfo(AUDIO_DIR .. "/" .. vid .. ".opus")
                 local thumb = THUMB_DIR .. "/" .. vid .. ".jpg"
                 table.insert(offline, {

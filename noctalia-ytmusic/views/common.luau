@@ -133,7 +133,9 @@ local function media_row(item, idx, custom_click, is_active)
                     tooltip = "Download for offline",
                     onClick = function()
                         if item.id and item.id ~= "" then
-                            request("download_track", { id = item.id })
+                            -- Full item rides along so standalone downloads can
+                            -- keep their title/artist in the Offline view.
+                            request("download_track", { id = item.id, item = item })
                         end
                     end
                 })

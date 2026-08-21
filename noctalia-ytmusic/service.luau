@@ -75,10 +75,10 @@ local ACTIONS = {
         home.refresh_quick_picks()
     end,
     download_track = function(r)
-        local vid = r.id or r.video_id
+        local vid = (r.item and r.item.id) or r.id or r.video_id
         if vid and vid ~= "" then
             log("download_track: queued for id=" .. tostring(vid))
-            downloader.enqueue(vid, "")
+            downloader.enqueue(vid, "", r.item)
         end
     end,
     download_playlist = function(r)
