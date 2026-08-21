@@ -16,6 +16,8 @@ local ORIGIN = const.ORIGIN
 local COOKIE_PATH = const.COOKIE_PATH
 local QUICK_PICKS_CACHE_PATH = const.QUICK_PICKS_CACHE_PATH
 
+local scratch = require("../utils/scratch.luau")
+
 local it = require("./innerTube.luau")
 local build_auth = it.build_auth
 
@@ -37,8 +39,9 @@ function EXPO.library()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
 
-    local tmp_payload = "/tmp/noctalia-ytmusic-library-payload.json"
-    local tmp_out = "/tmp/noctalia-ytmusic-library.json"
+    local tmp_payload = scratch.path("lib-payload")
+    local tmp_raw = scratch.path("lib-raw")
+    local tmp_out = scratch.path("lib-out")
     noctalia.writeFile(tmp_payload, body_json)
 
     local script = [=[
@@ -53,7 +56,7 @@ curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false"
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-library-payload.json" > "/tmp/noctalia-ytmusic-library-raw.json" 2>/dev/null
+  -d @"]=] .. tmp_payload .. [=[" > "]=] .. tmp_raw .. [=[" 2>/dev/null
 
 jq '{
   playlists: [.. | select(.musicTwoRowItemRenderer? != null) | .musicTwoRowItemRenderer | {
@@ -62,7 +65,7 @@ jq '{
     count_text: (.subtitle.runs[0].text // ""),
     thumbnail_url: (.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
   } | select(.id != "" and .title != "")] | unique_by(.id)
-}' "/tmp/noctalia-ytmusic-library-raw.json" > "]=] .. tmp_out .. [=[" 2>/dev/null
+}' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=[" 2>/dev/null
 echo "STATUS=OK"
 ]=]
 
@@ -122,8 +125,9 @@ function EXPO.playlist_page(playlist_id: string?, continuation_token: string?, c
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
 
-    local tmp_payload = "/tmp/noctalia-ytmusic-payload.json"
-    local tmp_out = "/tmp/noctalia-ytmusic-page.json"
+    local tmp_payload = scratch.path("pl-payload")
+    local tmp_raw = scratch.path("pl-raw")
+    local tmp_out = scratch.path("pl-out")
     noctalia.writeFile(tmp_payload, body_json)
 
     local script = [=[
@@ -138,7 +142,7 @@ curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false"
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-payload.json" > "/tmp/noctalia-ytmusic-raw.json"
+  -d @"]=] .. tmp_payload .. [=[" > "]=] .. tmp_raw .. [=["
 
 jq '{
   tracks: [.. | .musicResponsiveListItemRenderer? | select(. != null) | {
@@ -150,7 +154,7 @@ jq '{
   } | select(.id != "")],
   count_text: ([.. | .musicResponsiveHeaderRenderer? | select(. != null) | (.subtitle?.runs // []) + (.secondSubtitle?.runs // []) | .[]?.text | select(. != null and test("song|track"))] | .[0] // null),
   next_token: ([.. | (.continuationCommand?.token // .nextContinuationData?.continuation) | select(. != null and . != "")] | .[0] // null)
-}' "/tmp/noctalia-ytmusic-raw.json" > "]=] .. tmp_out .. [=["
+}' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=["
 ]=]
 
     noctalia.runAsync(script, function()
@@ -212,8 +216,9 @@ function EXPO.fetch_quick_picks(callback: ((any?, any?) -> ())?)
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
 
-    local tmp_payload = "/tmp/noctalia-ytmusic-home-payload.json"
-    local tmp_out = "/tmp/noctalia-ytmusic-quickpicks.json"
+    local tmp_payload = scratch.path("qp-payload")
+    local tmp_raw = scratch.path("qp-raw")
+    local tmp_out = scratch.path("qp-out")
     noctalia.writeFile(tmp_payload, body_json)
 
     local script = [=[
@@ -228,7 +233,7 @@ curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false"
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-home-payload.json" > "/tmp/noctalia-ytmusic-home-raw.json"
+  -d @"]=] .. tmp_payload .. [=[" > "]=] .. tmp_raw .. [=["
 
 jq '{
   tracks: [.. | select(.musicResponsiveListItemRenderer? != null) | .musicResponsiveListItemRenderer | {
@@ -245,7 +250,7 @@ jq '{
     videoId: (.navigationEndpoint.watchEndpoint.videoId // ""),
     thumbnail_url: (.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // .thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
   } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^VL")) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:24]
-}' "/tmp/noctalia-ytmusic-home-raw.json" > "]=] .. tmp_out .. [=[" 2>/dev/null
+}' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=[" 2>/dev/null
 echo "STATUS=OK"
 ]=]
 

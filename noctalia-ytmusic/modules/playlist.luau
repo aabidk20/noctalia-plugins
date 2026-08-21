@@ -9,6 +9,11 @@ local player = require("./player.luau")
 local state = store.state
 local log = logger.module("ytm", "playlist")
 
+-- Bumped on every view reset (open/refresh). Async callbacks capture the seq
+-- at dispatch time and drop their response if a newer open/refresh happened,
+-- so a slow fetch for playlist A can never render into (or cache under) B.
+local open_seq = 0
+
 local function load_cached(pid)
     if api and api.load_cached_playlist then
         return api.load_cached_playlist(pid)
@@ -54,6 +59,8 @@ end
 -- full open/fetch of a playlist (open_playlist)
 function Playlist.open(pid, title)
     if not pid or pid == "" then return end
+    open_seq = open_seq + 1
+    local seq = open_seq
     state.playlist.id = pid
     state.playlist.title = tostring(title or "Playlist")
 
@@ -64,6 +71,10 @@ function Playlist.open(pid, title)
 
     if api and api.playlist_page then
         api.playlist_page(pid, nil, function(res)
+            if seq ~= open_seq or state.playlist.id ~= pid then
+                log("playlist_page: dropped stale response for '" .. tostring(pid) .. "'")
+                return
+            end
             state.playlist.fetching = false
             state.playlist.next_token = res.next_token
             if res.total_count and res.total_count > 0 then
@@ -80,10 +91,11 @@ function Playlist.open(pid, title)
     end
 
     noctalia.runAsync("true", function()
+        if seq ~= open_seq or state.playlist.id ~= pid then return end
         local cached = load_cached(pid)
         if cached and #cached > 0 then
             if pid == "VLLM" then library.sync_liked_tracks(cached) end
-            if state.playlist.id == pid and #state.playlist.tracks == 0 then
+            if #state.playlist.tracks == 0 then
                 state.playlist.tracks = cached
                 store.publish()
             end
@@ -110,6 +122,8 @@ end
 function Playlist.refresh(pid)
     pid = pid or state.playlist.id
     if not pid or pid == "" then return end
+    open_seq = open_seq + 1
+    local seq = open_seq
     state.playlist.id = pid
     state.playlist.tracks = {}
     state.playlist.next_token = nil
@@ -117,6 +131,10 @@ function Playlist.refresh(pid)
     store.publish()
     if api and api.playlist_page then
         api.playlist_page(pid, nil, function(res)
+            if seq ~= open_seq or state.playlist.id ~= pid then
+                log("playlist_page: dropped stale refresh for '" .. tostring(pid) .. "'")
+                return
+            end
             state.playlist.fetching = false
             state.playlist.next_token = res.next_token
             state.playlist.tracks = res.tracks or {}
@@ -130,6 +148,7 @@ end
 -- fetch next cursor page (fetch_next_page)
 local function do_fetch(pid, fetch_token)
     api.playlist_page(pid, fetch_token, function(res)
+        if state.playlist.id ~= pid then return end
         local existing = {}
         for _, t in ipairs(state.playlist.tracks) do
             if t.id then existing[t.id] = true end

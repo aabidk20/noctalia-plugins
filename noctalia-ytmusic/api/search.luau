@@ -12,6 +12,8 @@ local fmt_seconds = helpers.fmt_seconds
 local const = require("./constants.luau")
 local CONTEXT = const.CONTEXT
 
+local scratch = require("../utils/scratch.luau")
+
 local it = require("./innerTube.luau")
 local innerTube = it.innerTube
 
@@ -43,8 +45,8 @@ function EXPO.search(query: string?, count: any, cb: ({ types.SearchResult }?, s
             cb(nil, err or "empty response")
             return
         end
-        local raw_file = "/tmp/noctalia-ytmusic-search-raw.json"
-        local clean_file = "/tmp/noctalia-ytmusic-search-clean.json"
+        local raw_file = scratch.path("search-raw")
+        local clean_file = scratch.path("search-clean")
         noctalia.writeFile(raw_file, raw_body)
 
         local script

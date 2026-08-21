@@ -5,6 +5,8 @@
 local const = require("./constants.luau")
 local THUMB_DIR = const.THUMB_DIR
 
+local scratch = require("../utils/scratch.luau")
+
 local EXPO = {}
 
 function EXPO.get_thumbnail_path(id: string, url: string?, callback: ((string) -> ())?): string?
@@ -68,8 +70,7 @@ function EXPO.ensure_thumbnails(items, on_updated, tag)
         return
     end
 
-    local safe_tag = (type(tag) == "string" and tag ~= "") and tag:gsub("[^%w%-_]", "_") or "batch"
-    local configFile = string.format("/tmp/noctalia-ytmusic-thumb-%s.txt", safe_tag)
+    local configFile = scratch.path("thumbcfg")
     local lines = {}
     for _, m in ipairs(missing) do
         table.insert(lines, string.format("output = \"%s\"\nurl = \"%s\"", m.path, m.url))
@@ -81,9 +82,8 @@ mkdir -p "%s"
 if command -v curl >/dev/null 2>&1; then
   curl -s --parallel --parallel-max 16 --parallel-immediate -K "%s" >/dev/null 2>&1
 fi
-rm -f "%s"
 echo "THUMBS_DONE=1"
-]=]):format(THUMB_DIR, configFile, configFile)
+]=]):format(THUMB_DIR, configFile)
 
     noctalia.runAsync(script, function(res)
         local out = (type(res) == "table" and res.stdout) or ""

@@ -43,13 +43,12 @@ local function player_set(item, stream_url)
     if item.artist and item.artist ~= "" then
         title = item.title .. " - " .. item.artist
     end
-    noctalia.writeFile("/tmp/noctalia-ytmusic-title.txt", title)
 
     if api and api.cache_audio and item.id and item.id ~= "" then
         api.cache_audio(item.id)
     end
 
-    mpv.play(stream_url, state.player.volume, function(ready)
+    mpv.play(stream_url, title, state.player.volume, function(ready)
         if ready then start_stream() end
     end)
     if api and api.save_session then
@@ -160,7 +159,7 @@ function Player.toggle()
         publish()
     elseif state.player.status == "paused" then
         noctalia.runAsync([[
-            SOCK="${XDG_RUNTIME_DIR:-/tmp}/noctalia-ytmusic-mpv.sock"
+            SOCK="/tmp/noctalia-ytmusic/mpv.sock"
             [ -S "$SOCK" ] && echo "YES" || echo "NO"
         ]], function(res)
             if res and res.stdout and res.stdout:find("YES") then

@@ -13,6 +13,8 @@ local CONTEXT = const.CONTEXT
 local ORIGIN = const.ORIGIN
 local COOKIE_PATH = const.COOKIE_PATH
 
+local scratch = require("../utils/scratch.luau")
+
 local it = require("./innerTube.luau")
 local build_auth = it.build_auth
 
@@ -31,7 +33,7 @@ function EXPO.like_video(video_id: string?, callback: ((boolean) -> ())?)
     local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
-    local tmp_payload = "/tmp/noctalia-ytmusic-like-payload.json"
+    local tmp_payload = scratch.path("like-payload")
     noctalia.writeFile(tmp_payload, body_json)
 
     local script = [=[
@@ -46,7 +48,7 @@ if curl -sf -X POST "https://music.youtube.com/youtubei/v1/like/like?prettyPrint
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-like-payload.json" >/dev/null 2>&1; then
+  -d @"]=] .. tmp_payload .. [=[" >/dev/null 2>&1; then
   echo "STATUS=OK"
 else
   echo "STATUS=FAIL"
@@ -75,7 +77,7 @@ function EXPO.unlike_video(video_id: string?, callback: ((boolean) -> ())?)
     local auth = build_auth()
     local auth_header = auth and ("-H \"Authorization: " .. auth .. "\"") or ""
     local origin_header = "-H \"Origin: " .. ORIGIN .. "\""
-    local tmp_payload = "/tmp/noctalia-ytmusic-unlike-payload.json"
+    local tmp_payload = scratch.path("unlike-payload")
     noctalia.writeFile(tmp_payload, body_json)
 
     local script = [=[
@@ -90,7 +92,7 @@ if curl -sf -X POST "https://music.youtube.com/youtubei/v1/like/removelike?prett
   ]=] .. origin_header .. [=[ \
   ]=] .. auth_header .. [=[ \
   $C_ARG \
-  -d @"/tmp/noctalia-ytmusic-unlike-payload.json" >/dev/null 2>&1; then
+  -d @"]=] .. tmp_payload .. [=[" >/dev/null 2>&1; then
   echo "STATUS=OK"
 else
   echo "STATUS=FAIL"
