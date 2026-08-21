@@ -12,11 +12,10 @@ local publish = store.publish
 
 local stream_generation = 0
 
--- Shuffle memory: indices already played in the current pass. Reset when the
--- queue size changes or shuffle is re-enabled, and once every index has been
--- played so a new pass can begin.
-local shuffle_played = {}
-local shuffle_queue_n = 0
+-- Original insertion order kept while shuffling so toggling shuffle OFF can
+-- restore it. Module-local on purpose: never published to the UI snapshot or
+-- saved into the session.
+local original_queue = nil
 local start_stream
 
 local function player_set(item, stream_url)
@@ -68,6 +67,7 @@ end
 function Player.play_index(index, queue)
     queue = queue or state.player.queue
     if #queue == 0 then return end
+    if queue ~= state.player.queue then original_queue = nil end
     index = math.max(1, math.min(index, #queue))
     state.player.queue = queue
     state.player.index = index
@@ -150,6 +150,7 @@ function Player.stop()
     mpv.kill()
     state.player.status = "stopped"
     state.player.queue = {}
+    original_queue = nil
     state.player.index = 0
     state.player.title = ""
     state.player.artist = ""
@@ -204,31 +205,8 @@ function Player.next(is_natural_end)
         return
     end
 
-    if state.player.shuffle and #state.player.queue > 1 then
-        local total = #state.player.queue
-        if shuffle_queue_n ~= total then
-            shuffle_played = {}
-            shuffle_queue_n = total
-        end
-        local candidates = {}
-        for i = 1, total do
-            if i ~= state.player.index and not shuffle_played[i] then
-                table.insert(candidates, i)
-            end
-        end
-        if #candidates == 0 then
-            -- full pass done: start over, still never repeating the current track
-            shuffle_played = {}
-            for i = 1, total do
-                if i ~= state.player.index then table.insert(candidates, i) end
-            end
-        end
-        local pick = candidates[math.random(#candidates)]
-        shuffle_played[pick] = true
-        log("next: shuffle pick " .. pick .. "/" .. total)
-        Player.play_index(pick)
-        return
-    end
+    -- With shuffle on the queue is physically reordered by toggle_shuffle,
+    -- so a plain sequential advance IS the shuffled order.
 
     local next_idx = state.player.index + 1
     if next_idx > #state.player.queue then
@@ -297,9 +275,40 @@ function Player.mute()
 end
 
 function Player.toggle_shuffle()
-    state.player.shuffle = not state.player.shuffle
-    shuffle_played = {}
-    log("toggle_shuffle: " .. tostring(state.player.shuffle))
+    local enabling = not state.player.shuffle
+    state.player.shuffle = enabling
+    local q = state.player.queue
+
+    if enabling then
+        original_queue = {}
+        for i, t in ipairs(q) do original_queue[i] = t end
+        -- Fisher-Yates on the upcoming region only; history above the current
+        -- track stays exactly as played.
+        local start = (state.player.index or 0) + 1
+        for i = #q, start + 1, -1 do
+            local j = math.random(start, i)
+            q[i], q[j] = q[j], q[i]
+        end
+        log("toggle_shuffle: on, randomized " .. math.max(0, #q - start) .. " upcoming tracks")
+    elseif original_queue then
+        local cur = q[state.player.index]
+        state.player.queue = original_queue
+        original_queue = nil
+        local restored = false
+        if cur and cur.id then
+            for i, t in ipairs(state.player.queue) do
+                if t.id == cur.id then
+                    state.player.index = i
+                    restored = true
+                    break
+                end
+            end
+        end
+        if not restored then
+            state.player.index = math.max(1, math.min(state.player.index or 1, #state.player.queue))
+        end
+        log("toggle_shuffle: off, order restored at index " .. state.player.index)
+    end
     publish()
 end
 
@@ -321,6 +330,7 @@ function Player.append_to_queue(track)
 end
 
 function Player.restore_session(sess)
+    original_queue = nil
     state.player.id = sess.id
     state.player.title = sess.title or ""
     state.player.artist = sess.artist or ""
