@@ -47,6 +47,7 @@ local EXPO = {}
 
 local stream_cache = {}
 local resolving_in_flight = {}
+local STREAM_DISK_TTL = 4 * 3600
 
 function EXPO.get_audio_cache_path(video_id: string): string?
     if type(video_id) ~= "string" or video_id == "" then return nil end
@@ -118,7 +119,18 @@ function EXPO.resolve_stream(video_id: string, cb: ((string?) -> ())?)
 
     local safe_id = video_id:gsub("[^%w%-_]", "_")
     local disk_url_path = STREAMS_CACHE_DIR .. "/" .. safe_id .. ".url"
-    if noctalia.fileExists(disk_url_path) then
+    local info = noctalia.fileInfo(disk_url_path)
+    local disk_fresh = false
+    if info then
+        local mtime_s = info.mtime
+        if mtime_s > 1e11 then mtime_s = mtime_s / 1000 end
+        disk_fresh = (os.time() - mtime_s) < STREAM_DISK_TTL
+        if not disk_fresh then
+            log("stream_disk_cache STALE for id=" .. video_id)
+            noctalia.removeFile(disk_url_path)
+        end
+    end
+    if disk_fresh then
         local raw_disk = noctalia.readFile(disk_url_path)
         if raw_disk and #raw_disk > 20 then
             local clean_url = sanitize_str(raw_disk)
