@@ -27,12 +27,23 @@ local STATS_SCRIPT = [[
 
 local Cache = {}
 
+-- rm target allowlist: the request channel is external input, so anything
+-- outside these four cache names is refused rather than interpolated.
+local ALLOWED_TARGETS = {
+    audio = true,
+    streams = true,
+    thumbnails = true,
+    playlists = true
+}
+
 function Cache.fetch_stats()
     noctalia.runAsync(STATS_SCRIPT, parse_stats)
 end
 
 function Cache.clear(target)
-    if not target then return end
+    if type(target) ~= "string" or not ALLOWED_TARGETS[target] then
+        return
+    end
     noctalia.runAsync(([[
         CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/noctalia-ytmusic"
         rm -rf "$CACHE/%s"/*

@@ -6,6 +6,7 @@ local const = require("./constants.luau")
 local THUMB_DIR = const.THUMB_DIR
 
 local scratch = require("../utils/scratch.luau")
+local Bash = require("../utils/bash.luau")
 
 local EXPO = {}
 
@@ -19,7 +20,7 @@ function EXPO.get_thumbnail_path(id: string, url: string?, callback: ((string) -
     end
 
     if type(url) == "string" and url ~= "" then
-        noctalia.runAsync("mkdir -p '" .. THUMB_DIR .. "' && curl -s -L -o '" .. path .. "' '" .. url .. "'", function()
+        noctalia.runAsync("mkdir -p " .. Bash.sh_quote(THUMB_DIR) .. " && curl -s -L -o " .. Bash.sh_quote(path) .. " " .. Bash.sh_quote(url), function()
             if noctalia.fileExists(path) and callback then
                 callback(path)
             end
@@ -73,7 +74,10 @@ function EXPO.ensure_thumbnails(items, on_updated, tag)
     local configFile = scratch.path("thumbcfg")
     local lines = {}
     for _, m in ipairs(missing) do
-        table.insert(lines, string.format("output = \"%s\"\nurl = \"%s\"", m.path, m.url))
+        -- curl -K config values: strip quotes/control chars so a hostile URL
+        -- cannot inject additional curl options via the config file
+        local safe_url = tostring(m.url):gsub("[%c\"]", "")
+        table.insert(lines, string.format("output = \"%s\"\nurl = \"%s\"", m.path, safe_url))
     end
     noctalia.writeFile(configFile, table.concat(lines, "\n"))
 
