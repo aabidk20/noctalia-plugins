@@ -165,6 +165,14 @@ local function build_player_bar()
     end
 
     local output_controls = ui.row({ key = "pb-right", align = "center", gap = 8, width = 170, justify = "end" }, {
+        -- Connectivity cue from the service's periodic probe
+        not state.data.online and ui.label({
+            key = "pb-offline-chip",
+            text = "OFFLINE",
+            fontSize = theme.fontCaption,
+            fontWeight = "bold",
+            color = "error"
+        }) or nil,
         common.icon_btn(vol_icon, function() request("toggle_mute") end),
         ui.slider({
             key = "pb-volume",

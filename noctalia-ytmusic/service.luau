@@ -5,6 +5,7 @@ local store = require("./modules/store.luau")
 local state = store.state
 
 local handled_nonce = 0
+local probe_tick = 19
 
 local logger = require("./utils/log.luau")
 local log = logger.module("ytm", "service")
@@ -157,6 +158,29 @@ function update()
                 log("ytmusic: library decode failed")
             end
         end)
+    end
+
+    -- Connectivity probe every ~20s (update ticks at 1s). First probe fires
+    -- one tick after boot thanks to the pre-advanced counter.
+    probe_tick = probe_tick + 1
+    if probe_tick >= 20 then
+        probe_tick = 0
+        noctalia.runAsync(
+            "curl -s -o /dev/null -m 3 https://music.youtube.com && echo 'NET=UP' || echo 'NET=DOWN'",
+            function(res)
+                local out = (type(res) == "table" and res.stdout) or ""
+                local now_online = out:find("NET=UP", 1, true) ~= nil
+                if now_online ~= state.online then
+                    state.online = now_online
+                    store.publish()
+                    if not now_online then
+                        noctalia.notify("Noctalia YT Music",
+                            "You're offline — playing downloaded tracks only")
+                    else
+                        log("network: back online")
+                    end
+                end
+            end, 5000)
     end
 end
 

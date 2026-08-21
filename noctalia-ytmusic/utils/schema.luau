@@ -35,6 +35,7 @@ local function new()
         downloading_playlist_ids = {},
         offline_tracks = {},
         offline_meta = {},
+        online = true,
         quick_picks = {},
         refreshing_quick_picks = false,
         home_mixes = {},

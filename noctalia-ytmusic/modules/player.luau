@@ -64,10 +64,43 @@ local function player_set(item, stream_url)
     publish()
 end
 
+-- Offline mode helper: first index at/after start_idx whose audio exists
+-- locally, scanning forward with one wrap. Returns index + how many were
+-- skipped, or nil when nothing in the queue is playable offline.
+local function pick_playable(start_idx, queue)
+    local n = #queue
+    for offset = 0, n - 1 do
+        local idx = ((start_idx - 1 + offset) % n) + 1
+        local t = queue[idx]
+        if t and t.id and api.get_audio_cache_path(t.id) then
+            return idx, offset
+        end
+    end
+    return nil, n
+end
+
 function Player.play_index(index, queue)
     queue = queue or state.player.queue
     if #queue == 0 then return end
     if queue ~= state.player.queue then original_queue = nil end
+
+    -- When offline, silently jump past undownloaded entries (covers natural
+    -- advance, manual next/prev and clicks into partial playlists).
+    local skipped_offline = 0
+    if not state.online and api and api.get_audio_cache_path then
+        local eff, skipped = pick_playable(index, queue)
+        if not eff then
+            mpv.kill()
+            state.player.status = "stopped"
+            state.status_text = "Offline: no downloaded tracks to play"
+            publish()
+            noctalia.notify("Noctalia YT Music", "Nothing downloaded to play offline")
+            return
+        end
+        index = eff
+        skipped_offline = skipped
+    end
+
     index = math.max(1, math.min(index, #queue))
     state.player.queue = queue
     state.player.index = index
@@ -82,6 +115,10 @@ function Player.play_index(index, queue)
     state.player.position = 0
     state.player.status = "loading"
     publish()
+
+    if skipped_offline > 0 then
+        noctalia.notify("Offline mode", "Skipped " .. skipped_offline .. " undownloaded track(s)")
+    end
 
     if api and api.ensure_thumbnails then
         noctalia.runAsync("true", function()
