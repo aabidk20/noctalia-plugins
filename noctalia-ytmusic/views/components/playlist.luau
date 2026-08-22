@@ -170,7 +170,7 @@ local function build_playlist_view()
 			tracks,
 			ui.label({
 				text = empty_text,
-				fontSize = theme.fontBody,
+				fontSize = theme.fontTitle,
 				color = "on_surface_variant",
 			})
 		)

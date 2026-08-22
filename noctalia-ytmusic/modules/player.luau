@@ -43,8 +43,14 @@ local function player_set(item, stream_url)
 	state.player.likes = 0
 	state.search.pending = false
 
+	-- Stats responses can outlive the click that started them; drop any that
+	-- arrive after a newer play intent so old counts never flash on screen.
+	local gen = play_generation
 	if api and api.track_stats and item.id and item.id ~= "" then
 		api.track_stats(item.id, function(views, likes)
+			if gen ~= play_generation then
+				return
+			end
 			state.player.views = views or 0
 			state.player.likes = likes or 0
 			publish()
@@ -160,6 +166,9 @@ function Player.play_index(index, queue)
 		or (api and api.get_thumbnail_path and api.get_thumbnail_path(item.id, item.thumbnail_url, nil) or nil)
 	state.player.duration = tonumber(item.duration) or 0
 	state.player.position = 0
+	-- Clear previous song's stats at click time, not on resolve.
+	state.player.views = 0
+	state.player.likes = 0
 	state.player.status = "loading"
 	publish()
 
