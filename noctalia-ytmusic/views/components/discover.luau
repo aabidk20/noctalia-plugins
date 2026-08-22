@@ -16,7 +16,7 @@ local function build_discover()
         }),
         ui.label({
             text = s.query ~= "" and ("\"" .. s.query .. "\"") or "",
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant"
         })
     }))
@@ -51,13 +51,13 @@ local function build_discover()
     if s.pending then
         table.insert(rows, ui.label({
             text = "Searching...",
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant"
         }))
     elseif #s.results == 0 then
         table.insert(rows, ui.label({
             text = "Type a query in the search bar above and press Enter.",
-            fontSize = theme.fontBody,
+            fontSize = theme.fontTitle,
             color = "on_surface_variant"
         }))
     else

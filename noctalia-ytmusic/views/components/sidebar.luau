@@ -99,7 +99,7 @@ local function build_sidebar()
             borderWidth = 0
         }, {
             ui.glyph({ name = "wifi-off", size = 15, color = "error" }),
-            ui.label({ text = "Offline mode", fontSize = theme.fontBody, color = "error" })
+            ui.label({ text = "Offline mode", fontSize = theme.fontTitle, color = "error" })
         }))
     end
 

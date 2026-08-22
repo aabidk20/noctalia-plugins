@@ -6,8 +6,8 @@ local logger = require("../utils/log.luau")
 local library = require("./library.luau")
 
 local const = require("../api/constants.luau")
+local thumbs = require("../api/thumbnails.luau")
 local AUDIO_DIR = const.AUDIO_DIR
-local THUMB_DIR = const.THUMB_DIR
 
 local state = store.state
 local log = logger.module("ytm", "downloader")
@@ -48,7 +48,7 @@ local function note_offline_row(id, meta)
 	end
 	local m = meta or {}
 	local info = noctalia.fileInfo(AUDIO_DIR .. "/" .. id .. ".opus")
-	local thumb = THUMB_DIR .. "/" .. id .. ".jpg"
+	local thumb = thumbs.path_for(id, m.thumbnail_url)
 	table.insert(list, 1, {
 		id = id,
 		title = m.title,

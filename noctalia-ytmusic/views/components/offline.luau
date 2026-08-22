@@ -61,7 +61,7 @@ local function build_offline()
 			child,
 			ui.label({
 				text = "Nothing downloaded yet. Use the download buttons on any playlist or track.",
-				fontSize = theme.fontBody,
+				fontSize = theme.fontTitle,
 				color = "on_surface_variant",
 			})
 		)

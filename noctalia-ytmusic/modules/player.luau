@@ -16,6 +16,11 @@ local stream_generation = 0
 -- restore it. Module-local on purpose: never published to the UI snapshot or
 -- saved into the session.
 local original_queue = nil
+
+-- Last click wins: bumped on every explicit play request so stream-resolve
+-- responses from earlier rapid clicks are recognised as stale and dropped
+-- instead of hijacking playback when they finally arrive.
+local play_generation = 0
 local start_stream
 
 local function player_set(item, stream_url)
@@ -110,6 +115,10 @@ function Player.play_index(index, queue)
 		original_queue = nil
 	end
 
+	-- Any new play intent invalidates every in-flight resolve before it.
+	play_generation = play_generation + 1
+	local gen = play_generation
+
 	-- When offline, silently jump past undownloaded entries (covers natural
 	-- advance, manual next/prev and clicks into partial playlists). Repeat
 	-- all may wrap to earlier tracks; any other mode stops at queue end.
@@ -187,6 +196,18 @@ function Player.play_index(index, queue)
 	end
 
 	api.resolve_stream(item.id, function(url)
+		if gen ~= play_generation then
+			log(
+				"play_index: dropped stale stream response (gen "
+					.. gen
+					.. " < "
+					.. play_generation
+					.. ") for '"
+					.. tostring(item.title)
+					.. "'"
+			)
+			return
+		end
 		if not url or url == "" then
 			state.player.status = "stopped"
 			state.status_text = "Could not resolve stream for " .. tostring(item.title)
@@ -200,6 +221,21 @@ function Player.play_index(index, queue)
 end
 
 function Player.play(item)
+	local n = #state.player.queue
+	-- Rapid re-clicks while the tail entry is still loading swap it out
+	-- instead of stacking duplicates; last click always owns that slot.
+	if state.player.status == "loading" and n > 0 and state.player.index == n then
+		state.player.queue[n] = {
+			id = item.id,
+			title = item.title,
+			artist = item.artist or "",
+			duration = tonumber(item.duration) or 0,
+			thumbnail_url = item.thumbnail_url,
+			thumb_path = item.thumb_path,
+		}
+		Player.play_index(n)
+		return
+	end
 	table.insert(state.player.queue, {
 		id = item.id,
 		title = item.title,

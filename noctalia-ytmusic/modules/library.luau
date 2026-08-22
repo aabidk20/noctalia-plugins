@@ -4,7 +4,7 @@ local logger = require("../utils/log.luau")
 
 local const = require("../api/constants.luau")
 local AUDIO_DIR = const.AUDIO_DIR
-local THUMB_DIR = const.THUMB_DIR
+local thumbs = require("../api/thumbnails.luau")
 
 local state = store.state
 local log = logger.module("ytm", "library")
@@ -105,7 +105,7 @@ function Library.audit_downloaded_playlists()
 			if cached[vid] and not member_ids[vid] then
 				local m = meta[vid] or own
 				local info = noctalia.fileInfo(AUDIO_DIR .. "/" .. vid .. ".opus")
-				local thumb = THUMB_DIR .. "/" .. vid .. ".jpg"
+				local thumb = thumbs.path_for(vid, m.thumbnail_url)
 				table.insert(offline, {
 					id = vid,
 					title = m.title,
