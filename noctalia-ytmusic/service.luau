@@ -129,6 +129,37 @@ local ACTIONS = {
 			end)
 		end
 	end,
+	fetch_artist = function(r)
+		local bid = tostring((r and r.browse_id) or "")
+		if bid == "" then
+			return
+		end
+		state.artist =
+			{ id = bid, title = tostring(r.title or "Artist"), thumbnail_url = r.thumbnail_url or "", thumb_path = nil }
+		state.artist_tracks = {}
+		state.artist_related = {}
+		store.publish()
+		if not network.isOnline() then
+			return
+		end
+		api.artist_page(bid, function(res)
+			state.artist_tracks = res.tracks or {}
+			state.artist_related = res.related or {}
+			store.publish()
+			local items = { state.artist }
+			for _, t in ipairs(state.artist_tracks) do
+				table.insert(items, t)
+			end
+			if type(state.artist_related) == "table" then
+				for _, pl in ipairs(state.artist_related) do
+					table.insert(items, pl)
+				end
+			end
+			noctalia.runAsync("true", function()
+				api.ensure_thumbnails(items, store.publish, "artist")
+			end)
+		end)
+	end,
 	clear_cache = function(r)
 		cacheops.clear(r.target)
 	end,

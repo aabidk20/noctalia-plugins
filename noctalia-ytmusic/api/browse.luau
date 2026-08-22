@@ -218,6 +218,89 @@ echo "BROWSE_OK"
 	end, 15000)
 end
 
+-- Artist page (browseId UC…): top-ish tracks from the first shelves plus
+-- albums/singles/playlists as related rows. Offline callers get nothing —
+-- the network gate skips the script.
+function EXPO.artist_page(browse_id: string, cb: (any) -> ())
+	if type(browse_id) ~= "string" or browse_id == "" then
+		cb({ tracks = {}, related = {} })
+		return
+	end
+
+	local tmp_payload = scratch.path("ar-payload")
+	local tmp_raw = scratch.path("ar-raw")
+	local tmp_out = scratch.path("ar-out")
+	local auth = build_auth()
+	local auth_header = auth and ('-H "Authorization: ' .. auth .. '"') or ""
+	local origin_header = '-H "Origin: ' .. ORIGIN .. '"'
+	noctalia.writeFile(
+		tmp_payload,
+		noctalia.json.encode({ context = CONTEXT.context, browseId = sanitize(browse_id) }) or ""
+	)
+
+	local script = [=[
+export PATH="/etc/profiles/per-user/$USER/bin:$PATH"
+C_ARG=""
+if [ -s "]=] .. COOKIE_PATH .. [=[" ]; then
+  C_ARG="--cookie ]=] .. COOKIE_PATH .. [=["
+fi
+
+curl -s -X POST "https://music.youtube.com/youtubei/v1/browse?prettyPrint=false" \
+  -H "Content-Type: application/json" \
+  ]=] .. origin_header .. [=[ \
+  ]=] .. auth_header .. [=[ \
+  $C_ARG \
+  -d @"]=] .. tmp_payload .. [=[" > "]=] .. tmp_raw .. [=["
+
+jq '{
+  tracks: [.. | .musicResponsiveListItemRenderer? | select(. != null) | {
+    id: (.playlistItemData.videoId // .overlay.musicItemThumbnailOverlayRenderer.content.musicPlayButtonRenderer.playNavigationEndpoint.watchEndpoint.videoId // ""),
+    title: (.flexColumns[0].musicResponsiveListItemFlexColumnRenderer.text.runs[0].text // ""),
+    artist: (.flexColumns[1].musicResponsiveListItemFlexColumnRenderer.text.runs | map(select(.text != null).text) | join("") // ""),
+    duration_text: (.fixedColumns[0].musicResponsiveListItemFixedColumnRenderer.text.runs[0].text // ""),
+    thumbnail_url: (.thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
+  } | select(.id != "" and .title != "")] | unique_by(.id)
+    | .[0:30],
+  related: [.. | .musicTwoRowItemRenderer? | select(. != null) | {
+    id: (.navigationEndpoint.browseEndpoint.browseId // ""),
+    title: (.title.runs[0].text // ""),
+    artist: (.subtitle.runs[0].text // ""),
+    thumbnail_url: (
+      .thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url //
+      .thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // ""
+    )
+  } | select(.id != "" and .title != "" and ((.id | startswith("MPRE")) or (.id | startswith("VL"))))] | unique_by(.id)
+    | .[0:8]
+}' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=["
+echo "BROWSE_OK"
+]=]
+
+	network.runAsync(script, function(res)
+		local out = (type(res) == "table" and res.stdout) or ""
+		if not out:find("BROWSE_OK", 1, true) or not noctalia.fileExists(tmp_out) then
+			cb({ tracks = {}, related = {} })
+			return
+		end
+		local raw = noctalia.readFile(tmp_out)
+		local data = raw and noctalia.json.decode(raw)
+		if type(data) ~= "table" then
+			cb({ tracks = {}, related = {} })
+			return
+		end
+		local tracks = type(data.tracks) == "table" and data.tracks or {}
+		for _, tr in ipairs(tracks) do
+			if tr.duration_text and tr.duration_text ~= "" then
+				tr.duration = fmt_seconds(tr.duration_text)
+			end
+			tr.artist = clean_artist(tr.artist)
+		end
+		if #tracks > 0 then
+			attach_cached_thumbs(tracks)
+		end
+		cb({ tracks = tracks, related = type(data.related) == "table" and data.related or {} })
+	end, 15000)
+end
+
 function EXPO.load_cached_quick_picks()
 	if not noctalia.fileExists(QUICK_PICKS_CACHE_PATH) then
 		return nil
