@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.2.2] - 2026-08-22
+
+### Added
+- **Offline mode**: a new Offline view in the sidebar gathers your downloaded playlists and saved songs in one place. When your connection drops, the app keeps working with what's on disk — playback automatically skips tracks that aren't downloaded, and rows show you what's available offline. Your downloads stay listed even after restarting or clearing caches.
+- **Artist pages**: search results can now include artists — open one to browse their songs and albums in a dedicated view.
+- **More playlist results**: searching playlists now fills all 25 result slots instead of stopping at 5.
+
+### Fixed
+- The Songs tab shows real song matches again instead of an unrelated mix of content.
+- The Playlists tab shows featured playlists from Youtube Music
+- Per-song play stats now reset when the track changes instead of sticking to the previous song.
+
 ## [0.2.1] - 2026-08-21
 
 ### Added
