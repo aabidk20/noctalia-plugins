@@ -18,6 +18,7 @@ local view = {
 	seek_drag_state = nil,
 	vol_drag_state = nil,
 	home_library_ready = false,
+	sidebar_full_ready = false,
 }
 
 local function logged_in()
@@ -34,6 +35,9 @@ end
 
 local function apply(snapshot)
 	if type(snapshot) ~= "table" then
+		return
+	end
+	if data and data.nonce and snapshot.nonce and data.nonce == snapshot.nonce then
 		return
 	end
 
@@ -174,18 +178,20 @@ local function play_playlist(pl)
 end
 
 local function open_artist(a)
+	local artist_name = tostring(a.title or a.name or "Artist")
 	data.artist = {
 		id = tostring(a.id or ""),
-		title = tostring(a.title or "Artist"),
+		title = artist_name,
+		name = artist_name,
 		thumbnail_url = a.thumbnail_url or "",
-		thumb_path = nil,
+		thumb_path = a.thumb_path or nil,
 	}
 	data.artist_tracks = {}
 	data.artist_related = {}
 	view.content_page = "artist"
 	request(
 		"fetch_artist",
-		{ browse_id = data.artist.id, title = data.artist.title, thumbnail_url = data.artist.thumbnail_url }
+		{ browse_id = data.artist.id, title = data.artist.title, thumbnail_url = data.artist.thumbnail_url, thumb_path = data.artist.thumb_path }
 	)
 	rerender.call()
 end
