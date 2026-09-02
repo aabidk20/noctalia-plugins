@@ -376,7 +376,7 @@ jq '{
     subtitle: (.subtitle.runs[0].text // ""),
     videoId: (.navigationEndpoint.watchEndpoint.videoId // ""),
     thumbnail_url: (.thumbnailRenderer.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // .thumbnail.musicThumbnailRenderer.thumbnail.thumbnails[-1].url // "")
-  } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^VL")) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:24]
+  } | select(.id != "" and .title != "" and .videoId == "" and (.id | test("^(VL)?RD")) and (.subtitle != "Album") and (.subtitle != "Playlist") and (.subtitle != "Song") and (.subtitle != "Single") and (.subtitle | endswith("subscribers") | not))] | unique_by(.id) | .[0:60]
 }' "]=] .. tmp_raw .. [=[" > "]=] .. tmp_out .. [=[" 2>/dev/null
 echo "STATUS=OK"
 ]=]
@@ -398,8 +398,8 @@ echo "STATUS=OK"
 					local j = math.random(1, i)
 					mixes[i], mixes[j] = mixes[j], mixes[i]
 				end
-				-- loop bound N+1 keeps exactly N items after trimming
-				for i = #mixes, 7, -1 do
+				-- Keep up to 24 candidate mixes for filtering
+				for i = #mixes, 25, -1 do
 					table.remove(mixes)
 				end
 				attach_cached_thumbs(mixes)
