@@ -18,7 +18,6 @@ local view = {
 	seek_drag_state = nil,
 	vol_drag_state = nil,
 	home_library_ready = false,
-	sidebar_full_ready = false,
 }
 
 local function logged_in()

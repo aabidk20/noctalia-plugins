@@ -238,16 +238,38 @@ function Library.sync_audio_cache()
 	end
 end
 
-function Library.toggle_like(vid)
+function Library.toggle_like(vid, item)
 	vid = vid or state.player.id
 	log("toggle_like: vid=" .. tostring(vid) .. " current=" .. tostring(state.liked_ids and state.liked_ids[vid]))
 	if vid and vid ~= "" then
-		if api and api.invalidate_playlist_cache then
-			api.invalidate_playlist_cache("VLLM")
-		end
 		if state.liked_ids[vid] then
 			state.liked_ids[vid] = nil
 			log("toggle_like: unliking vid=" .. tostring(vid))
+
+			if state.playlist.id == "VLLM" and type(state.playlist.tracks) == "table" then
+				local filtered = {}
+				for _, tr in ipairs(state.playlist.tracks) do
+					if tr.id ~= vid then
+						table.insert(filtered, tr)
+					end
+				end
+				state.playlist.tracks = filtered
+				if api and api.save_playlist_cache then
+					api.save_playlist_cache("VLLM", filtered)
+				end
+			elseif api and api.load_cached_playlist and api.save_playlist_cache then
+				local cached = api.load_cached_playlist("VLLM")
+				if type(cached) == "table" then
+					local filtered = {}
+					for _, tr in ipairs(cached) do
+						if tr.id ~= vid then
+							table.insert(filtered, tr)
+						end
+					end
+					api.save_playlist_cache("VLLM", filtered)
+				end
+			end
+
 			store.publish()
 			if api and api.unlike_video then
 				api.unlike_video(vid, function(ok) end)
@@ -255,6 +277,29 @@ function Library.toggle_like(vid)
 		else
 			state.liked_ids[vid] = true
 			log("toggle_like: liking vid=" .. tostring(vid))
+
+			local liked_item = item or (state.player.id == vid and {
+				id = state.player.id,
+				title = state.player.title,
+				artist = state.player.artist,
+				thumbnail_url = state.player.thumbnail_url,
+				thumb_path = state.player.thumb_path,
+				duration = state.player.duration,
+			} or nil)
+
+			if liked_item then
+				if state.playlist.id == "VLLM" and type(state.playlist.tracks) == "table" then
+					table.insert(state.playlist.tracks, 1, liked_item)
+					if api and api.save_playlist_cache then
+						api.save_playlist_cache("VLLM", state.playlist.tracks)
+					end
+				elseif api and api.load_cached_playlist and api.save_playlist_cache then
+					local cached = api.load_cached_playlist("VLLM") or {}
+					table.insert(cached, 1, liked_item)
+					api.save_playlist_cache("VLLM", cached)
+				end
+			end
+
 			store.publish()
 			if api and api.like_video then
 				api.like_video(vid, function(ok) end)

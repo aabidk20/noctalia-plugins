@@ -231,6 +231,7 @@ local function media_row(item, idx, custom_click, is_active)
 end
 
 return {
+	file_exists_cached = file_exists_cached,
 	fmt_pos = fmt_pos,
 	fmt_count = fmt_count,
 	thumb_or_placeholder = thumb_or_placeholder,
