@@ -1,10 +1,10 @@
 [[plugin]]
-id           = "aabidk20/noctalia-ytmusic"
-name         = "Noctalia YT Music"
-version      = "0.2.2"
+id           = "aabidk20/yt-music"
+name         = "YouTube Music"
+version      = "0.2.3"
 author       = "Aabid"
 license      = "MIT"
-icon         = "music"
+icon         = "brand-youtube-filled"
 description  = "YouTube Music client for Noctalia v5 - miniplayer & full view"
 deprecated   = false
 plugin_api   = 23
