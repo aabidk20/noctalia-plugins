@@ -19,7 +19,7 @@ local function build_artist()
 			ui.column({ gap = 4, flexGrow = 1 }, {
 				ui.label({
 					text = "ARTIST",
-					fontSize = theme.fontCaption,
+					fontSize = theme.fontTitle,
 					fontWeight = "bold",
 					color = "on_surface_variant",
 				}),
@@ -57,14 +57,16 @@ local function build_artist()
 			color = "on_surface_variant",
 		})
 	)
+	local song_rows = {}
 	for i, t in ipairs(data.artist_tracks) do
 		table.insert(
-			child,
-			common.media_row(t, i, function()
+			song_rows,
+			common.media_row(t, "ar-" .. i, function()
 				request("play_with_queue", { item = t, index = i, queue = data.artist_tracks })
-			end)
+			end, state.data.player.id == t.id)
 		)
 	end
+	table.insert(child, ui.column({ key = "ar-songs-col", gap = 0 }, song_rows))
 
 	if #(data.artist_related or {}) > 0 then
 		table.insert(child, ui.separator({ key = "sep-ar-rel", color = "outline/0.3" }))
