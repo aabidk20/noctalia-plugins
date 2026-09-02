@@ -33,7 +33,7 @@ local function build_artist()
 		})
 	)
 
-	table.insert(child, ui.separator({ key = "sep-artist", color = "outline" }))
+	table.insert(child, ui.row({ key = "spacer-artist-1", height = 8, borderWidth = 0 }))
 
 	if #data.artist_tracks == 0 then
 		table.insert(

@@ -31,6 +31,10 @@ function Store.publish()
         snap.home_mixes = {}
         for k, v in pairs(Store.state.home_mixes) do snap.home_mixes[k] = v end
     end
+    if type(Store.state.search) == "table" then
+        snap.search = {}
+        for k, v in pairs(Store.state.search) do snap.search[k] = v end
+    end
     snap.liked_ids = Store.state.liked_ids
     snap.cached_audio_ids = Store.state.cached_audio_ids
     snap.downloaded_playlist_ids = Store.state.downloaded_playlist_ids
