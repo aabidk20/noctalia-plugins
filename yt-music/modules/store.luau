@@ -40,7 +40,6 @@ function Store.publish()
     snap.downloaded_playlist_ids = Store.state.downloaded_playlist_ids
     snap.offline_tracks = Store.state.offline_tracks
     snap.recent_playlists = Store.state.recent_playlists
-    snap.cache_stats = Store.state.cache_stats
     snap.settings = Store.state.settings
     noctalia.state.set(STATE_KEY, snap)
 end

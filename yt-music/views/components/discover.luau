@@ -24,11 +24,13 @@ local function build_discover()
 	)
 	table.insert(view, ui.row({ key = "spacer-disc-1", height = 8, borderWidth = 0 }))
 
-	-- Search type filter chips (Top, Songs, Playlists)
+	-- Search type filter chips (Top, Songs, Playlists, Albums, Artists)
 	local chips = {
 		{ id = "top", label = "Top" },
 		{ id = "songs", label = "Songs" },
 		{ id = "playlists", label = "Playlists" },
+		{ id = "albums", label = "Albums" },
+		{ id = "artists", label = "Artists" },
 	}
 
 	local chip_elems = {}
@@ -83,10 +85,12 @@ local function build_discover()
 		)
 	else
 		for idx, t in ipairs(s.results) do
-			if t.type == "playlist" then
+			if t.type == "playlist" or t.type == "album" or (t.id and tostring(t.id):sub(1, 5) == "MPREb") then
 				table.insert(rows, playlist_comp.playlist_row(t, idx))
 			elseif t.type == "artist" then
 				local key = "artist-" .. tostring(t.id)
+				local is_hovered = (state.view.hover_key.track == key)
+				local is_hero = (t.is_hero == true)
 				table.insert(
 					rows,
 					ui.row({
@@ -94,20 +98,27 @@ local function build_discover()
 						gap = 14,
 						align = "center",
 						padding = 8,
-						borderWidth = 1,
-						border = "primary/0.4",
-						fill = "primary/0.06",
+						borderWidth = 0,
+						fill = is_hovered and "primary/0.25" or "surface_variant/0.15",
 						onClick = function()
 							state.view.hover_key.track = nil
 							state.open_artist(t)
 						end,
+						onHover = "onTrackHover",
 					}, {
-						common.thumb_or_placeholder(t.thumb_path, 96, "user", 28, "primary", "primary/0.15"),
+						common.thumb_or_placeholder(
+							t.thumb_path,
+							is_hero and 96 or 54,
+							"user",
+							is_hero and 28 or 20,
+							is_hovered and "primary" or "on_surface_variant",
+							is_hero and "primary/0.15" or nil
+						),
 						ui.column({ gap = 2, flexGrow = 1 }, {
 							ui.label({
 								text = t.title or "Artist",
-								fontSize = theme.fontHeading,
-								fontWeight = "bold",
+								fontSize = is_hero and theme.fontHeading or theme.fontTitle,
+								fontWeight = is_hero and "bold" or nil,
 								color = "on_surface",
 							}),
 							ui.label({
