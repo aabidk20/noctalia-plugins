@@ -6,7 +6,7 @@ A collection of plugins for [Noctalia v5](https://docs.noctalia.dev/v5/plugins/)
 
 | Plugin | ID | Description | API |
 | --- | --- | --- | --- |
-| [Noctalia YT Music](noctalia-ytmusic/) | `aabidk20/noctalia-ytmusic` | YouTube Music client - miniplayer & full view | 22 |
+| [YouTube Music](yt-music/) | `aabidk20/yt-music` | YouTube Music client - miniplayer & full view | 23 |
 
 ## Installing
 
@@ -16,7 +16,7 @@ Add this repo as a git source in Noctalia settings
 ## Development
 
 Each plugin lives in its own subdirectory matching the part of the id after
-the `/` (so `aabidk20/noctalia-ytmusic` lives at `noctalia-ytmusic/`). The
+the `/` (so `aabidk20/yt-music` lives at `yt-music/`). The
 `catalog.toml` at the repo root indexes every plugin so Noctalia can list and
 compat-check them without a full clone.
 
