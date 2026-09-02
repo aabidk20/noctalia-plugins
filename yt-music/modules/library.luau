@@ -74,7 +74,7 @@ function Library.audit_downloaded_playlists()
 
 	local cached = (type(state.cached_audio_ids) == "table") and state.cached_audio_ids or {}
 
-	-- Every pid we know a title for: library first, then recents.
+	-- Every pid we know a title for: library first, then recents, then open playlist.
 	local sources, seen_pid = {}, {}
 	local function add_source(list)
 		if type(list) ~= "table" then
@@ -90,11 +90,15 @@ function Library.audit_downloaded_playlists()
 	end
 	add_source(state.library)
 	add_source(state.recent_playlists)
+	if state.playlist and state.playlist.id then
+		add_source({ state.playlist })
+	end
 
 	state.downloaded_playlist_ids = {}
 	local member_ids = {}
 	local meta = {}
 	local done = 0
+	local meta_added = false
 
 	local function finalize()
 		-- Saved Tracks are EXPLICIT downloads only: songs that were merely
@@ -131,7 +135,7 @@ function Library.audit_downloaded_playlists()
 				pruned = true
 			end
 		end
-		if pruned then
+		if pruned or meta_added then
 			Library.save_offline_meta()
 		end
 
@@ -175,6 +179,10 @@ function Library.audit_downloaded_playlists()
 					for _, tr in ipairs(tracks) do
 						if tr.id then
 							member_ids[tr.id] = true
+							if not state.offline_meta[tr.id] and meta[tr.id] then
+								state.offline_meta[tr.id] = meta[tr.id]
+								meta_added = true
+							end
 						end
 					end
 				end

@@ -29,7 +29,7 @@ if [ -s "$CACHE_FILE" ]; then
 fi
 
 [ -s "$OUT" ] || { echo "NOCACHE=1"; exit 0; }
-URL=$(yt-dlp -f bestaudio/best -g --no-playlist --no-warnings --cookies "$OUT" "https://www.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
+URL=$(yt-dlp -f bestaudio/best -g --no-playlist --no-warnings --cookies "$OUT" "https://music.youtube.com/watch?v=VIDEO" 2>/dev/null | tail -1)
 if [ -n "$URL" ]; then
   mkdir -p "]=] .. STREAMS_CACHE_DIR .. [=["
   echo "$URL" > "$CACHE_FILE"
@@ -85,7 +85,7 @@ function EXPO.cache_audio(video_id, callback)
     end
 
     local cmd = string.format(
-        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' --cookies '%s' 'https://www.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
+        "mkdir -p '%s' && export PATH=\"/etc/profiles/per-user/$USER/bin:$PATH\" && yt-dlp -f bestaudio -o '%s' --cookies '%s' 'https://music.youtube.com/watch?v=%s' >/dev/null 2>&1 && echo 'STATUS=OK'",
         AUDIO_DIR, path, COOKIE_PATH, safe_id
     )
     local launched = network.runAsync(cmd, function(res)
