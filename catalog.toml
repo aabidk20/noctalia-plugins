@@ -1,7 +1,7 @@
 [[plugin]]
 id           = "aabidk20/yt-music"
 name         = "YouTube Music"
-version      = "0.2.4"
+version      = "0.2.5"
 author       = "Aabid"
 license      = "MIT"
 icon         = "brand-youtube-filled"
