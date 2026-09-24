@@ -170,13 +170,11 @@ local function track_actions(item, row_key, trailing)
 		variant = "ghost",
 		controlSize = "sm",
 		tooltip = "Play next",
-		visible = true,
+		visible = is_expanded,
 		onClick = function()
-			state.view.hover_key.track = nil
+			state.execute_track_action("play_next", item)
 			state.collapse_track()
-			if item and item.id then
-				request("play_next", { item = item })
-			end
+			rerender.call()
 		end,
 		onHover = function(h)
 			state.track_hover(h, row_key, "playnext", item)
