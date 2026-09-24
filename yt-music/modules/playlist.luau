@@ -145,7 +145,7 @@ function Playlist.open(pid, title)
 		end)
 	end
 
--- redundant async reload removed
+	-- redundant async reload removed
 end
 
 -- play from cached tracks only (play_playlist)
@@ -225,105 +225,104 @@ do_fetch = function(pid, fetch_token)
 			return
 		end
 		pcall(function()
-
-		-- YT Music appends a suggestion shelf to playlist continuations; only
-		-- the first (declared_count - loaded) rows are real playlist members,
-		-- everything after goes into the suggestions section instead.
-		local total = tonumber(state.playlist.count) or 0
-		local incoming = res.tracks or {}
-		local real, suggested = {}, {}
-		if total > 0 then
-			local room = math.max(0, total - #state.playlist.tracks)
-			for i, t in ipairs(incoming) do
-				if i <= room then
-					table.insert(real, t)
-				else
-					table.insert(suggested, t)
+			-- YT Music appends a suggestion shelf to playlist continuations; only
+			-- the first (declared_count - loaded) rows are real playlist members,
+			-- everything after goes into the suggestions section instead.
+			local total = tonumber(state.playlist.count) or 0
+			local incoming = res.tracks or {}
+			local real, suggested = {}, {}
+			if total > 0 then
+				local room = math.max(0, total - #state.playlist.tracks)
+				for i, t in ipairs(incoming) do
+					if i <= room then
+						table.insert(real, t)
+					else
+						table.insert(suggested, t)
+					end
 				end
+			else
+				real = incoming
 			end
-		else
-			real = incoming
-		end
 
-		local existing = {}
-		for _, t in ipairs(state.playlist.tracks) do
-			if t.id then
-				existing[t.id] = true
-			end
-		end
-
-		local added_count = 0
-		local queue_sync = (state.player.source_playlist == pid)
-		for _, tr in ipairs(real) do
-			if tr.id and not existing[tr.id] then
-				table.insert(state.playlist.tracks, tr)
-				if queue_sync then
-					player.append_to_queue(tr)
-				end
-				existing[tr.id] = true
-				added_count = added_count + 1
-			end
-		end
-
-		if #suggested > 0 then
-			-- YT duplicates every row of the suggestion shelf within a single
-			-- payload; keep the first occurrence of each videoId and skip
-			-- anything already listed as a real playlist member.
-			local seen = {}
+			local existing = {}
 			for _, t in ipairs(state.playlist.tracks) do
 				if t.id then
-					seen[t.id] = true
+					existing[t.id] = true
 				end
 			end
-			local uniq = {}
-			for _, t in ipairs(suggested) do
-				if t.id and not seen[t.id] then
-					seen[t.id] = true
-					table.insert(uniq, t)
+
+			local added_count = 0
+			local queue_sync = (state.player.source_playlist == pid)
+			for _, tr in ipairs(real) do
+				if tr.id and not existing[tr.id] then
+					table.insert(state.playlist.tracks, tr)
+					if queue_sync then
+						player.append_to_queue(tr)
+					end
+					existing[tr.id] = true
+					added_count = added_count + 1
 				end
 			end
-			state.playlist.suggestions = uniq
-		end
 
-		local new_token = res.next_token
-		local token_valid = (new_token and new_token ~= "" and new_token ~= fetch_token)
+			if #suggested > 0 then
+				-- YT duplicates every row of the suggestion shelf within a single
+				-- payload; keep the first occurrence of each videoId and skip
+				-- anything already listed as a real playlist member.
+				local seen = {}
+				for _, t in ipairs(state.playlist.tracks) do
+					if t.id then
+						seen[t.id] = true
+					end
+				end
+				local uniq = {}
+				for _, t in ipairs(suggested) do
+					if t.id and not seen[t.id] then
+						seen[t.id] = true
+						table.insert(uniq, t)
+					end
+				end
+				state.playlist.suggestions = uniq
+			end
 
-		if total > 0 and #state.playlist.tracks >= total then
-			log("fetch_next_page: declared count " .. total .. " reached, dropping continuation")
-			state.playlist.next_token = nil
+			local new_token = res.next_token
+			local token_valid = (new_token and new_token ~= "" and new_token ~= fetch_token)
+
+			if total > 0 and #state.playlist.tracks >= total then
+				log("fetch_next_page: declared count " .. total .. " reached, dropping continuation")
+				state.playlist.next_token = nil
+				state.playlist.fetching = false
+				store.publish()
+				save_cache(pid)
+				ensure_thumbs("playlist")
+				return
+			end
+
+			if added_count == 0 and token_valid then
+				log("fetch_next_page: all duplicates, skipping to next page")
+				noctalia.runAsync("true", function()
+					do_fetch(pid, new_token)
+				end)
+				return
+			end
+
+			if not token_valid then
+				state.playlist.next_token = nil
+			else
+				state.playlist.next_token = new_token
+			end
+
 			state.playlist.fetching = false
+			log(
+				"fetch_next_page: added "
+					.. added_count
+					.. " new tracks (total "
+					.. #state.playlist.tracks
+					.. "), next_token="
+					.. tostring(state.playlist.next_token ~= nil)
+			)
 			store.publish()
 			save_cache(pid)
 			ensure_thumbs("playlist")
-			return
-		end
-
-		if added_count == 0 and token_valid then
-			log("fetch_next_page: all duplicates, skipping to next page")
-			noctalia.runAsync("true", function()
-				do_fetch(pid, new_token)
-			end)
-			return
-		end
-
-		if not token_valid then
-			state.playlist.next_token = nil
-		else
-			state.playlist.next_token = new_token
-		end
-
-		state.playlist.fetching = false
-		log(
-			"fetch_next_page: added "
-				.. added_count
-				.. " new tracks (total "
-				.. #state.playlist.tracks
-				.. "), next_token="
-				.. tostring(state.playlist.next_token ~= nil)
-		)
-		store.publish()
-		save_cache(pid)
-		ensure_thumbs("playlist")
 		end)
 	end)
 end
@@ -349,7 +348,7 @@ function Playlist.fetch_next_page(pid, token)
 	do_fetch(pid, token)
 end
 
--- play a provided queue, remembering the source playlist (play_with_queue)
+-- play a provided queue, remembering the source playlist (replace_queue_and_play)
 function Playlist.play_queue(queue, index, source_playlist)
 	if queue and #queue > 0 then
 		if source_playlist and source_playlist ~= "" then
@@ -368,7 +367,7 @@ function Playlist.play_queue(queue, index, source_playlist)
 		state.player.source_playlist = source_playlist
 		player.play_index(index or 1, queue)
 	else
-		log("play_with_queue: empty or missing queue")
+		log("replace_queue_and_play: empty or missing queue")
 	end
 end
 

@@ -340,6 +340,26 @@ function Player.play_next(item)
 	end
 end
 
+function Player.add_to_queue(item)
+	if not item or not item.id or item.id == "" then
+		return
+	end
+	table.insert(state.player.queue, {
+		id = item.id,
+		title = item.title,
+		artist = item.artist or "",
+		duration = tonumber(item.duration) or 0,
+		thumbnail_url = item.thumbnail_url,
+		thumb_path = item.thumb_path,
+	})
+	log("add_to_queue: appended '" .. tostring(item.title) .. "' to queue")
+	if state.player.status == "stopped" then
+		Player.play_index(#state.player.queue)
+	else
+		publish()
+	end
+end
+
 -- Play immediately while preserving the upcoming queue: the suggestion slots
 -- in right after the current track and starts, so everything queued below
 -- keeps its order.

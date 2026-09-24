@@ -108,6 +108,11 @@ function onQueueTrackDropped(payload, value)
 	queue_comp.on_track_dropped(payload, value)
 end
 
+function onTrackContextMenu(actionId, trackId)
+	state.handle_track_context_menu(actionId, trackId)
+end
+end
+
 function onOpen(_context)
 	theme.corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
 	theme.radius = 12 * theme.corner_radius_scale

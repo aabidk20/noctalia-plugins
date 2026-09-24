@@ -229,7 +229,7 @@ local function build_offline()
 			table.insert(
 				track_rows,
 				common.media_row(t, page_start + i - 1, function()
-					request("play_with_queue", { item = t, index = i, queue = page_tracks })
+					request("replace_queue_and_play", { item = t, index = i, queue = page_tracks })
 				end, data.player.id == t.id)
 			)
 		end

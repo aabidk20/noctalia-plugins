@@ -183,7 +183,7 @@ local function build_playlist_view()
 					tracks,
 					common.media_row(t, abs_idx, function()
 						request(
-							"play_with_queue",
+							"replace_queue_and_play",
 							{ item = t, index = abs_idx, queue = pl.tracks, source_playlist = pl.id }
 						)
 					end, state.data.player.id == t.id)

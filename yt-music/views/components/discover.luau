@@ -13,7 +13,12 @@ local function build_discover()
 		view,
 		ui.row({ key = "discover-title", align = "center", justify = "space_between", radius = theme.radius }, {
 			ui.column({ gap = 4, radius = theme.radius }, {
-				ui.label({ text = "SEARCH RESULTS", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+				ui.label({
+					text = "SEARCH RESULTS",
+					fontSize = theme.fontHero,
+					fontWeight = "bold",
+					color = "on_surface",
+				}),
 				ui.label({
 					text = s.query ~= "" and ('"' .. s.query .. '"') or "Search songs, albums, artists, or playlists",
 					fontSize = theme.fontTitle,
@@ -136,7 +141,7 @@ local function build_discover()
 				table.insert(
 					rows,
 					common.media_row(t, idx, function()
-						request("play_with_queue", { item = t, index = idx, queue = s.results })
+						request("replace_queue_and_play", { item = t, index = idx, queue = s.results })
 					end, state.data.player.id == t.id)
 				)
 			end

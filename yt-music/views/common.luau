@@ -129,12 +129,163 @@ local function drag_grip(row_key, spec, highlighted)
 	})
 end
 
+local function track_actions(item, row_key, trailing)
+	local is_expanded = (
+		state.view.expanded_track_id ~= nil
+		and item.id ~= nil
+		and state.view.expanded_track_id == item.id
+		and state.view.expanded_row_key == row_key
+	)
+	local is_liked = (state.data.liked_ids and item.id and state.data.liked_ids[item.id] == true)
+	local id_on_disk = (state.data.cached_audio_ids and item.id and state.data.cached_audio_ids[item.id] == true)
+	local is_explicit = (id_on_disk and state.data.offline_meta and item.id and state.data.offline_meta[item.id] ~= nil)
+
+	local trailing_row = ui.row({
+		key = row_key .. "-trailing-row",
+		gap = 6,
+		align = "center",
+		visible = (not is_expanded) and (trailing ~= nil and #trailing > 0),
+	}, trailing or {})
+
+	local addqueue_button = ui.button({
+		key = row_key .. "-addqueue",
+		glyph = "plus",
+		variant = "ghost",
+		controlSize = "sm",
+		tooltip = "Add to queue",
+		visible = is_expanded,
+		onClick = function()
+			state.execute_track_action("add_queue", item)
+			state.collapse_track()
+			rerender.call()
+		end,
+		onHover = function(h)
+			state.track_hover(h, row_key, "addqueue", item)
+		end,
+	})
+
+	local playnext_button = ui.button({
+		key = row_key .. "-playnext",
+		glyph = "playlist-add",
+		variant = "ghost",
+		controlSize = "sm",
+		tooltip = "Play next",
+		visible = true,
+		onClick = function()
+			state.view.hover_key.track = nil
+			state.collapse_track()
+			if item and item.id then
+				request("play_next", { item = item })
+			end
+		end,
+		onHover = function(h)
+			state.track_hover(h, row_key, "playnext", item)
+		end,
+	})
+
+	local like_button = ui.button({
+		key = row_key .. "-like",
+		glyph = "heart",
+		variant = is_liked and "primary" or "ghost",
+		controlSize = "sm",
+		tooltip = is_liked and "Remove from Liked" or "Add to Liked",
+		visible = is_expanded,
+		onClick = function()
+			state.execute_track_action("toggle_like", item)
+			rerender.call()
+		end,
+		onHover = function(h)
+			state.track_hover(h, row_key, "like", item)
+		end,
+	})
+
+	local dl_button = ui.button({
+		key = row_key .. "-dl",
+		glyph = is_explicit and "trash" or "download",
+		variant = "ghost",
+		controlSize = "sm",
+		tooltip = is_explicit and "Remove from downloads"
+			or (id_on_disk and "Save to offline" or "Download for offline"),
+		visible = is_expanded,
+		onClick = function()
+			state.execute_track_action("download", item)
+			rerender.call()
+		end,
+		onHover = function(h)
+			state.track_hover(h, row_key, "dl", item)
+		end,
+	})
+
+	local copy_button = ui.button({
+		key = row_key .. "-copy",
+		glyph = "copy",
+		variant = "ghost",
+		controlSize = "sm",
+		tooltip = "Copy YouTube Music link",
+		visible = is_expanded,
+		onClick = function()
+			state.execute_track_action("copy_link", item)
+			state.collapse_track()
+			rerender.call()
+		end,
+		onHover = function(h)
+			state.track_hover(h, row_key, "copy", item)
+		end,
+	})
+
+	local menu_button = ui.button({
+		key = row_key .. "-menu",
+		glyph = is_expanded and "x" or "dots-vertical",
+		variant = is_expanded and "secondary" or "ghost",
+		controlSize = "sm",
+		tooltip = is_expanded and "Close options" or "Track options",
+		visible = true,
+		onClick = function()
+			if state.view.expanded_track_id == item.id and state.view.expanded_row_key == row_key then
+				state.collapse_track()
+			else
+				state.view.expanded_track_id = item.id
+				state.view.expanded_row_key = row_key
+				state.view.hover_key.track = row_key
+			end
+			rerender.call()
+		end,
+		onRightClick = function()
+			state.open_track_context_menu(item)
+		end,
+		onHover = function(h)
+			state.track_hover(h, row_key, "menu", item)
+		end,
+	})
+
+	return ui.row({
+		key = row_key .. "-actions-row",
+		gap = 2,
+		align = "center",
+		borderWidth = 0,
+	}, {
+		trailing_row,
+		addqueue_button,
+		playnext_button,
+		like_button,
+		dl_button,
+		copy_button,
+		menu_button,
+	})
+end
+
 local function media_row(item, idx, custom_click, is_active, drag)
 	local handler = custom_click or function()
 		state.play_item(item)
 	end
 	local row_key = "track-" .. idx
-	local is_hovered = (state.view.hover_key.track == row_key)
+	local is_expanded = (
+		state.view.expanded_track_id ~= nil
+		and item.id ~= nil
+		and state.view.expanded_track_id == item.id
+		and state.view.expanded_row_key == row_key
+	)
+	local is_hovered = (state.view.hover_key.track == row_key or is_expanded)
 	local is_playing = (
 		state.data.player.id ~= ""
 		and item.id ~= nil
@@ -179,7 +330,9 @@ local function media_row(item, idx, custom_click, is_active, drag)
 				variant = "ghost",
 				controlSize = "sm",
 				tooltip = "Song cached for faster playback",
-				onHover = function() end,
+				onHover = function(h)
+					state.track_hover(h, row_key, "bolt", item)
+				end,
 			})
 		)
 	end
@@ -220,7 +373,7 @@ local function media_row(item, idx, custom_click, is_active, drag)
 				radius = theme.radius,
 			}, {
 				ui.button({
-					key = row_key .. "-dl",
+					key = row_key .. "-dl-indicator",
 					glyph = "download",
 					variant = "ghost",
 					controlSize = "sm",
@@ -232,10 +385,15 @@ local function media_row(item, idx, custom_click, is_active, drag)
 							request("download_track", { id = item.id, item = item })
 						end
 					end,
+					onHover = function(h)
+						state.track_hover(h, row_key, "dl_indicator", item)
+					end,
 				}),
 			})
 		)
 	end
+
+	local actions_row = track_actions(item, row_key, trailing)
 
 	local row_children = {
 		track_thumb,
@@ -248,20 +406,7 @@ local function media_row(item, idx, custom_click, is_active, drag)
 			}),
 			ui.label({ text = item.artist or "", fontSize = theme.fontTitle, color = "on_surface_variant" }),
 		}),
-		ui.row({ key = row_key .. "-trailing-row", gap = 6, align = "center", radius = theme.radius }, trailing),
-		ui.button({
-			key = row_key .. "-playnext",
-			glyph = "playlist-add",
-			variant = "ghost",
-			controlSize = "sm",
-			tooltip = "Play next",
-			onClick = function()
-				state.view.hover_key.track = nil
-				if item and item.id then
-					request("play_next", { item = item })
-				end
-			end,
-		}),
+		actions_row,
 	}
 	if drag then
 		table.insert(row_children, 1, drag_grip(row_key, drag, is_hovered or is_current))
@@ -277,13 +422,16 @@ local function media_row(item, idx, custom_click, is_active, drag)
 			or (is_hovered and "primary/0.25" or "surface_variant/0.15"),
 		onClick = function()
 			state.view.hover_key.track = nil
+			state.collapse_track()
 			if item and item.id then
 				state.view.loading_track_id = item.id
 			end
 			handler()
 			rerender.call()
 		end,
-		onHover = "onTrackHover",
+		onHover = function(h)
+			state.track_hover(h, row_key, nil, item)
+		end,
 		radius = theme.radius,
 	}, row_children)
 end
@@ -295,5 +443,6 @@ return {
 	thumb_or_placeholder = thumb_or_placeholder,
 	icon_btn = icon_btn,
 	chunk_rows = chunk_rows,
+	track_actions = track_actions,
 	media_row = media_row,
 }
