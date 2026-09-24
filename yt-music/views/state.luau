@@ -365,8 +365,10 @@ local function open_track_context_menu(item)
 	local id_on_disk = (data.cached_audio_ids and data.cached_audio_ids[item.id] == true)
 	local is_explicit = (id_on_disk and data.offline_meta and data.offline_meta[item.id] ~= nil)
 	local is_liked = (data.liked_ids and data.liked_ids[item.id] == true)
+	local raw_title = tostring(item.title or "Track")
+	local header_label = (#raw_title > 25) and (raw_title:sub(1, 24) .. "…") or raw_title
 	local items = {
-		{ kind = "header", label = tostring(item.title or "Track") },
+		{ kind = "header", label = header_label },
 		{ id = "play", label = "Play now" },
 		{ id = "play_next", label = "Play next" },
 		{ id = "add_queue", label = "Add to queue" },
@@ -378,7 +380,7 @@ local function open_track_context_menu(item)
 				or (id_on_disk and "Save to offline" or "Download for offline"),
 		},
 		{ kind = "separator" },
-		{ id = "copy_link", label = "Copy YouTube Music link" },
+		{ id = "copy_link", label = "Copy link" },
 	}
 
 	if panel and panel.openContextMenu then
