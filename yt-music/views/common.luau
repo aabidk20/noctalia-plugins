@@ -1,6 +1,5 @@
 local theme = require("../utils/theme.luau")
 local state = require("./state.luau")
-local request = require("./actions.luau")
 local rerender = require("./rerender.luau")
 
 -- fileExists is a synchronous host call; on hover every row re-renders, so
@@ -142,7 +141,8 @@ local function track_actions(item, row_key, trailing)
 
 	local trailing_row = ui.row({
 		key = row_key .. "-trailing-row",
-		gap = 6,
+		gap = 10,
+		paddingH = 8,
 		align = "center",
 		visible = (not is_expanded) and (trailing ~= nil and #trailing > 0),
 	}, trailing or {})
@@ -314,16 +314,29 @@ local function media_row(item, idx, custom_click, is_active, drag)
 		is_current and "primary/0.2" or "surface_variant/0.3"
 	)
 
-	-- Trailing cluster, built conditionally (never leave nil holes):
-	--   [⚡?] [duration] [✓ | ⬇]
+	-- Trailing cluster: [✓ | ⚡?] [duration]
 	--   ✓  explicit download (listed in Saved Tracks)
 	--   ⚡  cached by playback — plays offline, not yet saved
 	local trailing = {}
-	if id_on_disk and not is_explicit then
+	if is_explicit then
 		table.insert(
 			trailing,
 			ui.button({
-				key = row_key .. "-bolt",
+				key = row_key .. "-status-check",
+				glyph = "check",
+				variant = "ghost",
+				controlSize = "sm",
+				tooltip = "Downloaded for offline playback",
+				onHover = function(h)
+					state.track_hover(h, row_key, "check", item)
+				end,
+			})
+		)
+	elseif id_on_disk then
+		table.insert(
+			trailing,
+			ui.button({
+				key = row_key .. "-status-bolt",
 				glyph = "bolt",
 				variant = "ghost",
 				controlSize = "sm",
@@ -343,53 +356,6 @@ local function media_row(item, idx, custom_click, is_active, drag)
 			color = "on_surface_variant",
 		})
 	)
-	if is_explicit then
-		table.insert(
-			trailing,
-			ui.row({
-				key = row_key .. "-slot",
-				width = 32,
-				height = 32,
-				align = "center",
-				justify = "center",
-				borderWidth = 0,
-				radius = theme.radius,
-			}, {
-				ui.glyph({ key = row_key .. "-check", name = "check", size = 16, color = "primary" }),
-			})
-		)
-	else
-		table.insert(
-			trailing,
-			ui.row({
-				key = row_key .. "-slot",
-				width = 32,
-				height = 32,
-				align = "center",
-				justify = "center",
-				borderWidth = 0,
-				radius = theme.radius,
-			}, {
-				ui.button({
-					key = row_key .. "-dl-indicator",
-					glyph = "download",
-					variant = "ghost",
-					controlSize = "sm",
-					tooltip = id_on_disk and "Add to offline downloads" or "Download for offline",
-					onClick = function()
-						if item.id and item.id ~= "" then
-							-- Full item rides along so standalone downloads can
-							-- keep their title/artist in the Offline view.
-							request("download_track", { id = item.id, item = item })
-						end
-					end,
-					onHover = function(h)
-						state.track_hover(h, row_key, "dl_indicator", item)
-					end,
-				}),
-			})
-		)
-	end
 
 	local actions_row = track_actions(item, row_key, trailing)
 
