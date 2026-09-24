@@ -97,7 +97,6 @@ local ACTIONS = {
 			player.play(r.item)
 		end
 	end,
-	end,
 	play_with_queue = function(r)
 		if r.queue and #r.queue > 0 then
 			playlist.play_queue(r.queue, r.index, r.source_playlist)

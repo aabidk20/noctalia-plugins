@@ -77,7 +77,9 @@ local function build_player_bar()
 				}),
 				(function()
 					local pid = player.id
-					if not pid or pid == "" then return nil end
+					if not pid or pid == "" then
+						return nil
+					end
 					local id_on_disk = (state.data.cached_audio_ids and state.data.cached_audio_ids[pid] == true)
 					local is_explicit = (id_on_disk and state.data.offline_meta and state.data.offline_meta[pid] ~= nil)
 					if is_explicit then

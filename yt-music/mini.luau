@@ -6,53 +6,65 @@ theme.corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 
 theme.radius = 12 * theme.corner_radius_scale
 
 local state = {
-    online = true,
-    status = "idle",
-    player = {
-        status = "stopped",
-        title = "",
-        artist = "",
-        id = "",
-        position = 0,
-        duration = 0,
-        volume = 100,
-        queue = {},
-        index = 0
-    }
+	online = true,
+	status = "idle",
+	player = {
+		status = "stopped",
+		title = "",
+		artist = "",
+		id = "",
+		position = 0,
+		duration = 0,
+		volume = 100,
+		queue = {},
+		index = 0,
+	},
 }
 
 local seek_drag_state = nil
 
 local function fmt_time(sec)
-    sec = tonumber(sec) or 0
-    if sec <= 0 then return "0:00" end
-    local m = math.floor(sec / 60)
-    local s = math.floor(sec % 60)
-    return string.format("%d:%02d", m, s)
+	sec = tonumber(sec) or 0
+	if sec <= 0 then
+		return "0:00"
+	end
+	local m = math.floor(sec / 60)
+	local s = math.floor(sec % 60)
+	return string.format("%d:%02d", m, s)
 end
 
 local function icon_btn(glyph, cb, active)
-    return ui.button({
-        glyph = glyph,
-        variant = active and "primary" or "ghost",
-        controlSize = "md",
-        onClick = cb
-    })
+	return ui.button({
+		glyph = glyph,
+		variant = active and "primary" or "ghost",
+		controlSize = "md",
+		onClick = cb,
+	})
 end
 
 local function audio_spec_tooltip()
-    local player = state.player or {}
-    local codec_str = (player.codec and player.codec ~= "") and string.upper(player.codec) or "OPUS"
-    local bitrate_str = (player.bitrate and tonumber(player.bitrate) > 0) and (math.floor(tonumber(player.bitrate) / 1000) .. " kbps") or "256 kbps"
-    local rate_str = (player.samplerate and tonumber(player.samplerate) > 0) and string.format("%.1f kHz", tonumber(player.samplerate) / 1000) or "48.0 kHz"
-    local title = (player.title ~= nil and player.title ~= "") and player.title or "Nothing playing"
-    local artist = (player.artist ~= nil and player.artist ~= "") and player.artist or "—"
-    return ("%s\n%s\n\nCodec: %s\nBitrate: %s\nSample rate: %s\nOutput driver: PipeWire\nVolume: %d%%")
-        :format(title, artist, codec_str, bitrate_str, rate_str, tonumber(player.volume) or 70)
+	local player = state.player or {}
+	local codec_str = (player.codec and player.codec ~= "") and string.upper(player.codec) or "OPUS"
+	local bitrate_str = (player.bitrate and tonumber(player.bitrate) > 0)
+			and (math.floor(tonumber(player.bitrate) / 1000) .. " kbps")
+		or "256 kbps"
+	local rate_str = (player.samplerate and tonumber(player.samplerate) > 0)
+			and string.format("%.1f kHz", tonumber(player.samplerate) / 1000)
+		or "48.0 kHz"
+	local title = (player.title ~= nil and player.title ~= "") and player.title or "Nothing playing"
+	local artist = (player.artist ~= nil and player.artist ~= "") and player.artist or "—"
+	return ("%s\n%s\n\nCodec: %s\nBitrate: %s\nSample rate: %s\nOutput driver: PipeWire\nVolume: %d%%"):format(
+		title,
+		artist,
+		codec_str,
+		bitrate_str,
+		rate_str,
+		tonumber(player.volume) or 70
+	)
 end
 
 local function is_logged_in()
-    return state.status == "ready" or (state.cookie_count and state.cookie_count > 0)
+	return state.status == "ready" or (state.cookie_count and state.cookie_count > 0)
 end
 
 local function render_mini()
@@ -79,20 +91,20 @@ local function render_mini()
         return
     end
 
-    local player = state.player or {}
-    local is_playing = (player.status == "playing")
-    local duration = tonumber(player.duration) or 0
-    local position = math.min(tonumber(player.position) or 0, duration)
+	local player = state.player or {}
+	local is_playing = (player.status == "playing")
+	local duration = tonumber(player.duration) or 0
+	local position = math.min(tonumber(player.position) or 0, duration)
 
-    if seek_drag_state and seek_drag_state.track_id ~= player.id then
-        seek_drag_state = nil
-    end
+	if seek_drag_state and seek_drag_state.track_id ~= player.id then
+		seek_drag_state = nil
+	end
 
-    local is_drag_active = seek_drag_state and seek_drag_state.track_id == player.id and seek_drag_state.dragging
-    local slider_val = tonumber((is_drag_active and seek_drag_state.position) or position) or 0
+	local is_drag_active = seek_drag_state and seek_drag_state.track_id == player.id and seek_drag_state.dragging
+	local slider_val = tonumber((is_drag_active and seek_drag_state.position) or position) or 0
 
-    local track_title = (player.title ~= nil and player.title ~= "") and player.title or "No Track Playing"
-    local track_artist = (player.artist ~= nil and player.artist ~= "") and player.artist or "YouTube Music"
+	local track_title = (player.title ~= nil and player.title ~= "") and player.title or "No Track Playing"
+	local track_artist = (player.artist ~= nil and player.artist ~= "") and player.artist or "YouTube Music"
 
     -- Album Art Thumbnail
     local player_thumb
@@ -210,15 +222,16 @@ local function render_mini()
         })
     })
 
-    -- Transport Controls
-    local shuffle_active = (player.shuffle == true)
-    local rep_mode = player.repeat_mode or "off"
-    local rep_active = (rep_mode ~= "off")
-    local rep_glyph = (rep_mode == "one") and "repeat-once" or "repeat"
-    local rep_tooltip = (rep_mode == "one") and "Repeat Track (1)" or ((rep_mode == "all") and "Repeat Queue" or "Repeat Off")
+	-- Transport Controls
+	local shuffle_active = (player.shuffle == true)
+	local rep_mode = player.repeat_mode or "off"
+	local rep_active = (rep_mode ~= "off")
+	local rep_glyph = (rep_mode == "one") and "repeat-once" or "repeat"
+	local rep_tooltip = (rep_mode == "one") and "Repeat Track (1)"
+		or ((rep_mode == "all") and "Repeat Queue" or "Repeat Off")
 
-    local is_loading = (player.status == "loading")
-    local play_glyph = is_loading and "loader" or (is_playing and "player-pause" or "player-play")
+	local is_loading = (player.status == "loading")
+	local play_glyph = is_loading and "loader" or (is_playing and "player-pause" or "player-play")
 
     local controls_row = ui.row({ key = "mini-controls", align = "center", justify = "center", gap = 12, width = "fill", radius = theme.radius }, {
         icon_btn("arrows-shuffle", function() request("toggle_shuffle") end, shuffle_active),
@@ -241,26 +254,32 @@ local function render_mini()
         })
     })
 
-    -- Footer Links & Volume
-    local footer_children = {}
-    if state.online == false then
-        table.insert(footer_children, ui.label({
-            key = "mini-offline-chip",
-            text = "OFFLINE",
-            fontSize = theme.fontCaption,
-            fontWeight = "bold",
-            color = "error"
-        }))
-    end
-    table.insert(footer_children, ui.button({
-        key = "btn-open-settings",
-        glyph = "settings",
-        variant = "ghost",
-        controlSize = "sm",
-        onClick = function()
-            noctalia.openSettings("aabidk20/yt-music")
-        end
-    }))
+	-- Footer Links & Volume
+	local footer_children = {}
+	if state.online == false then
+		table.insert(
+			footer_children,
+			ui.label({
+				key = "mini-offline-chip",
+				text = "OFFLINE",
+				fontSize = theme.fontCaption,
+				fontWeight = "bold",
+				color = "error",
+			})
+		)
+	end
+	table.insert(
+		footer_children,
+		ui.button({
+			key = "btn-open-settings",
+			glyph = "settings",
+			variant = "ghost",
+			controlSize = "sm",
+			onClick = function()
+				noctalia.openSettings("aabidk20/yt-music")
+			end,
+		})
+	)
 
     local footer_row = ui.row({ key = "mini-footer", align = "center", justify = "end", width = "fill", gap = 8, radius = theme.radius }, footer_children)
 
@@ -280,23 +299,27 @@ local function render_mini()
 end
 
 local function apply_state(s)
-    if type(s) ~= "table" then return end
-    if s.status ~= nil then
-        state.status = s.status
-    end
-    if s.cookie_count ~= nil then
-        state.cookie_count = s.cookie_count
-    end
-    if s.online ~= nil then
-        state.online = s.online
-    end
-    if type(s.player) == "table" then
-        for k, v in pairs(s.player) do state.player[k] = v end
-    end
-    if type(s.liked_ids) == "table" then
-        state.liked_ids = s.liked_ids
-    end
-    render_mini()
+	if type(s) ~= "table" then
+		return
+	end
+	if s.status ~= nil then
+		state.status = s.status
+	end
+	if s.cookie_count ~= nil then
+		state.cookie_count = s.cookie_count
+	end
+	if s.online ~= nil then
+		state.online = s.online
+	end
+	if type(s.player) == "table" then
+		for k, v in pairs(s.player) do
+			state.player[k] = v
+		end
+	end
+	if type(s.liked_ids) == "table" then
+		state.liked_ids = s.liked_ids
+	end
+	render_mini()
 end
 
 function onOpen(_context)
@@ -307,9 +330,11 @@ function onOpen(_context)
 end
 
 if noctalia.state and noctalia.state.watch then
-    noctalia.state.watch(STATE, apply_state)
-    local curr = noctalia.state.get(STATE)
-    if curr then apply_state(curr) end
+	noctalia.state.watch(STATE, apply_state)
+	local curr = noctalia.state.get(STATE)
+	if curr then
+		apply_state(curr)
+	end
 end
 
 render_mini()

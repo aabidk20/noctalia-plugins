@@ -290,14 +290,19 @@ function Library.toggle_like(vid, item)
 			state.liked_ids[vid] = true
 			log("toggle_like: liking vid=" .. tostring(vid))
 
-			local liked_item = item or (state.player.id == vid and {
-				id = state.player.id,
-				title = state.player.title,
-				artist = state.player.artist,
-				thumbnail_url = state.player.thumbnail_url,
-				thumb_path = state.player.thumb_path,
-				duration = state.player.duration,
-			} or nil)
+			local liked_item = item
+				or (
+					state.player.id == vid
+						and {
+							id = state.player.id,
+							title = state.player.title,
+							artist = state.player.artist,
+							thumbnail_url = state.player.thumbnail_url,
+							thumb_path = state.player.thumb_path,
+							duration = state.player.duration,
+						}
+					or nil
+				)
 
 			if liked_item then
 				if state.playlist.id == "VLLM" and type(state.playlist.tracks) == "table" then

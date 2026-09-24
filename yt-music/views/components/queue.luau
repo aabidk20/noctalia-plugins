@@ -36,10 +36,10 @@ local function insertion_zone(slot)
 end
 
 local function build_queue()
-    local player = state.data.player
-    local view = state.view
-    local child = {}
-    local PAGE_SIZE = 50
+	local player = state.data.player
+	local view = state.view
+	local child = {}
+	local PAGE_SIZE = 50
 
 	table.insert(
 		child,
@@ -56,20 +56,23 @@ local function build_queue()
 	)
 	table.insert(child, ui.row({ key = "spacer-queue-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
-    if #player.queue == 0 then
-        table.insert(child, ui.label({
-            text = "Nothing queued yet.",
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    else
-        local total = #player.queue
-        local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))
-        if view.queue_view_page >= total_pages then
-            view.queue_view_page = math.max(0, total_pages - 1)
-        end
-        local page_start = view.queue_view_page * PAGE_SIZE + 1
-        local page_end = math.min(page_start + PAGE_SIZE - 1, total)
+	if #player.queue == 0 then
+		table.insert(
+			child,
+			ui.label({
+				text = "Nothing queued yet.",
+				fontSize = theme.fontTitle,
+				color = "on_surface_variant",
+			})
+		)
+	else
+		local total = #player.queue
+		local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))
+		if view.queue_view_page >= total_pages then
+			view.queue_view_page = math.max(0, total_pages - 1)
+		end
+		local page_start = view.queue_view_page * PAGE_SIZE + 1
+		local page_end = math.min(page_start + PAGE_SIZE - 1, total)
 
         local rows = {}
         for idx = page_start, page_end do
@@ -84,42 +87,51 @@ local function build_queue()
         end
         table.insert(rows, insertion_zone(page_end + 1))
 
-        local has_prev = (view.queue_view_page > 0)
-        local has_next = (view.queue_view_page < total_pages - 1)
+		local has_prev = (view.queue_view_page > 0)
+		local has_next = (view.queue_view_page < total_pages - 1)
 
-        local page_controls = {}
-        if has_prev then
-            table.insert(page_controls, ui.button({
-                key = "q-prev-page",
-                text = "← Previous",
-                variant = "outline",
-                controlSize = "sm",
-                onClick = function()
-                    view.queue_view_page = view.queue_view_page - 1
-                    rerender.call()
-                end
-            }))
-        end
+		local page_controls = {}
+		if has_prev then
+			table.insert(
+				page_controls,
+				ui.button({
+					key = "q-prev-page",
+					text = "← Previous",
+					variant = "outline",
+					controlSize = "sm",
+					onClick = function()
+						view.queue_view_page = view.queue_view_page - 1
+						rerender.call()
+					end,
+				})
+			)
+		end
 
-        table.insert(page_controls, ui.label({
-            text = page_start .. "–" .. page_end .. " of " .. total,
-            fontSize = theme.fontBody,
-            fontWeight = "medium",
-            color = "on_surface_variant"
-        }))
+		table.insert(
+			page_controls,
+			ui.label({
+				text = page_start .. "–" .. page_end .. " of " .. total,
+				fontSize = theme.fontBody,
+				fontWeight = "medium",
+				color = "on_surface_variant",
+			})
+		)
 
-        if has_next then
-            table.insert(page_controls, ui.button({
-                key = "q-next-page",
-                text = "Next →",
-                variant = "outline",
-                controlSize = "sm",
-                onClick = function()
-                    view.queue_view_page = view.queue_view_page + 1
-                    rerender.call()
-                end
-            }))
-        end
+		if has_next then
+			table.insert(
+				page_controls,
+				ui.button({
+					key = "q-next-page",
+					text = "Next →",
+					variant = "outline",
+					controlSize = "sm",
+					onClick = function()
+						view.queue_view_page = view.queue_view_page + 1
+						rerender.call()
+					end,
+				})
+			)
+		end
 
         -- catch-all: a drop anywhere on the list goes to the bottom of the page
         table.insert(child, ui.dropZone({
@@ -142,7 +154,7 @@ local function build_queue()
         }, page_controls))
     end
 
-    return child
+	return child
 end
 
 return { build = build_queue, on_track_dropped = on_track_dropped }

@@ -133,9 +133,15 @@ local function build_library()
 			local is_hovered = (view.hover_key.card == key)
 
 			local icon_name = "playlist"
-			if iid:sub(1, 2) == "UC" then icon_name = "user" end
-			if iid:sub(1, 5) == "MPREb" then icon_name = "disc" end
-			if item.title:lower():find("liked", 1, true) then icon_name = "heart" end
+			if iid:sub(1, 2) == "UC" then
+				icon_name = "user"
+			end
+			if iid:sub(1, 5) == "MPREb" then
+				icon_name = "disc"
+			end
+			if item.title:lower():find("liked", 1, true) then
+				icon_name = "heart"
+			end
 
 			local thumb_path = item.thumb_path or item.thumbnail_url
 
@@ -153,7 +159,13 @@ local function build_library()
 					onClick = function()
 						view.hover_key.card = nil
 						if iid:sub(1, 2) == "UC" then
-							state.open_artist({ id = iid, title = item.title, name = item.title, thumbnail_url = item.thumbnail_url, thumb_path = item.thumb_path })
+							state.open_artist({
+								id = iid,
+								title = item.title,
+								name = item.title,
+								thumbnail_url = item.thumbnail_url,
+								thumb_path = item.thumb_path,
+							})
 						else
 							state.open_playlist(item)
 						end

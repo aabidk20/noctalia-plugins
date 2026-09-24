@@ -12,31 +12,31 @@ local BROWSERS = require("../../utils/browsers.luau")
 local DEP_ORDER = { "ytdlp", "mpv", "jq", "nc", "curl" }
 
 local DEP_LABEL = {
-    ytdlp = "yt-dlp",
-    mpv = "mpv",
-    jq = "jq",
-    nc = "netcat",
-    curl = "curl",
+	ytdlp = "yt-dlp",
+	mpv = "mpv",
+	jq = "jq",
+	nc = "netcat",
+	curl = "curl",
 }
 
 local function short_ver(name, detail)
-    detail = tostring(detail or "")
-    if name == "mpv" or name == "curl" then
-        local a, b = detail:match("^(%S+)%s+(%S+)")
-        if a then
-            return a .. " " .. b
-        end
-        return ""
-    end
-    return detail
+	detail = tostring(detail or "")
+	if name == "mpv" or name == "curl" then
+		local a, b = detail:match("^(%S+)%s+(%S+)")
+		if a then
+			return a .. " " .. b
+		end
+		return ""
+	end
+	return detail
 end
 
 local DEP_IMPACT = {
-    ytdlp = "not found — search, playback and downloads won't work",
-    mpv = "not found — no audio playback",
-    jq = "not found — search, library and playlists won't work",
-    nc = "not found — duration, controls and auto-advance won't work",
-    curl = "not found — thumbnails won't load",
+	ytdlp = "not found — search, playback and downloads won't work",
+	mpv = "not found — no audio playback",
+	jq = "not found — search, library and playlists won't work",
+	nc = "not found — duration, controls and auto-advance won't work",
+	curl = "not found — thumbnails won't load",
 }
 
 local function build_health_card()
@@ -100,12 +100,12 @@ local function build_health_card()
 end
 
 local function build_browser_cells()
-    local cells = {}
-    for _, b in ipairs(BROWSERS) do
-        local is_avail = state.data.available[b.id]
-        local is_current = (state.data.extracting and state.data.browser == b.id)
-        local key = "browser-btn-" .. b.id
-        local is_hovered = (state.view.hover_key.card == key)
+	local cells = {}
+	for _, b in ipairs(BROWSERS) do
+		local is_avail = state.data.available[b.id]
+		local is_current = (state.data.extracting and state.data.browser == b.id)
+		local key = "browser-btn-" .. b.id
+		local is_hovered = (state.view.hover_key.card == key)
 
         if is_current then
             table.insert(cells, ui.row({
@@ -216,39 +216,52 @@ local function build_signin_prompt()
 end
 
 local function build_cookies_page()
-    local page = {}
+	local page = {}
 
     table.insert(page, ui.row({ key = "cookie-title", align = "center", gap = 8, radius = theme.radius }, {
         ui.glyph({ name = "login", size = 18, color = "primary" }),
         ui.label({ text = "COOKIES & LOGIN", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" })
     }))
 
-    local status_color = "on_surface_variant"
-    if state.data.status == "ready" then
-        status_color = "primary"
-    elseif state.data.status == "error" then
-        status_color = "error"
-    end
+	local status_color = "on_surface_variant"
+	if state.data.status == "ready" then
+		status_color = "primary"
+	elseif state.data.status == "error" then
+		status_color = "error"
+	end
 
-    local status_children = {
-        ui.label({ text = "COOKIE STATUS", fontSize = theme.fontHeading, fontWeight = "bold", color = status_color }),
-        ui.label({ text = state.data.status_text, fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface" })
-    }
-    if state.data.status == "ready" then
-        table.insert(status_children, ui.label({
-            text = "YouTube cookies: " .. state.data.cookie_count,
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    elseif state.data.status == "error" and state.data.last_error and state.data.last_error ~= "" then
-        local err = state.data.last_error
-        if #err > 220 then err = err:sub(1, 220) .. "..." end
-        table.insert(status_children, ui.label({
-            text = err,
-            fontSize = theme.fontTitle,
-            color = "on_surface_variant"
-        }))
-    end
+	local status_children = {
+		ui.label({ text = "COOKIE STATUS", fontSize = theme.fontHeading, fontWeight = "bold", color = status_color }),
+		ui.label({
+			text = state.data.status_text,
+			fontSize = theme.fontTitle,
+			fontWeight = "medium",
+			color = "on_surface",
+		}),
+	}
+	if state.data.status == "ready" then
+		table.insert(
+			status_children,
+			ui.label({
+				text = "YouTube cookies: " .. state.data.cookie_count,
+				fontSize = theme.fontTitle,
+				color = "on_surface_variant",
+			})
+		)
+	elseif state.data.status == "error" and state.data.last_error and state.data.last_error ~= "" then
+		local err = state.data.last_error
+		if #err > 220 then
+			err = err:sub(1, 220) .. "..."
+		end
+		table.insert(
+			status_children,
+			ui.label({
+				text = err,
+				fontSize = theme.fontTitle,
+				color = "on_surface_variant",
+			})
+		)
+	end
 
     table.insert(page, ui.column({
         key = "cookie-status-card",
@@ -262,7 +275,15 @@ local function build_cookies_page()
     table.insert(page, ui.row({ key = "spacer-above-sep-cookie", height = 4, borderWidth = 0, radius = theme.radius }))
     table.insert(page, ui.separator({ key = "sep-cookie", color = "outline/0.3" }))
 
-    table.insert(page, ui.label({ text = "LOG IN & EXTRACT", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
+	table.insert(
+		page,
+		ui.label({
+			text = "LOG IN & EXTRACT",
+			fontSize = theme.fontHeading,
+			fontWeight = "bold",
+			color = "on_surface_variant",
+		})
+	)
 
     table.insert(page, ui.column({ key = "cookie-steps", gap = 6, padding = 4, radius = theme.radius }, {
         ui.label({ text = "1. Close any open windows of your browser", fontSize = theme.fontTitle, fontWeight = "medium", color = "on_surface_variant" }),
@@ -272,17 +293,17 @@ local function build_cookies_page()
 
     table.insert(page, ui.row({ key = "spacer-above-browser-grid", height = 4, borderWidth = 0, radius = theme.radius }))
 
-    local cells = build_browser_cells()
-    local grid_rows = common.chunk_rows(cells, 3, "browser-grid", 12)
-    local health_card = build_health_card()
-    if health_card then
-        table.insert(grid_rows, 1, health_card)
-    end
-    for _, row in ipairs(grid_rows) do
-        table.insert(page, row)
-    end
+	local cells = build_browser_cells()
+	local grid_rows = common.chunk_rows(cells, 3, "browser-grid", 12)
+	local health_card = build_health_card()
+	if health_card then
+		table.insert(grid_rows, 1, health_card)
+	end
+	for _, row in ipairs(grid_rows) do
+		table.insert(page, row)
+	end
 
-    return page
+	return page
 end
 
 return {

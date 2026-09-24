@@ -111,7 +111,6 @@ end
 function onTrackContextMenu(actionId, trackId)
 	state.handle_track_context_menu(actionId, trackId)
 end
-end
 
 function onOpen(_context)
 	theme.corner_radius_scale = noctalia.getSetting("shell.corner_radius_scale") or 1.0
