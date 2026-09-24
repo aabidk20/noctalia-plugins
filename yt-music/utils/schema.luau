@@ -8,8 +8,8 @@ local function new()
 		cookies_path = "",
 		cookie_count = 0,
 		available = {},
-	health = {},
-	checking_health = false,
+		health = {},
+		checking_health = false,
 		extracting = false,
 		last_error = "",
 		player = {
@@ -44,6 +44,7 @@ local function new()
 		quick_picks = {},
 		refreshing_quick_picks = false,
 		refreshing_library = false,
+		refreshing_cache_stats = false,
 		home_mixes = {},
 		cache_stats = {},
 		settings = { autoplay = true },

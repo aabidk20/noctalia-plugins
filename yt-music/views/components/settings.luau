@@ -24,6 +24,7 @@ local function build_settings()
 		{ id = "playlists", name = "Playlists", desc = "Cached library playlists and metadata." },
 	}
 
+	local is_refreshing = (state.data.refreshing_cache_stats == true)
 	local cache_rows = {}
 	for _, c in ipairs(caches) do
 		local size = state.data.cache_stats and state.data.cache_stats[c.id] or "0"
@@ -61,11 +62,27 @@ local function build_settings()
 			fill = "surface_variant/0.2",
 			radius = theme.radius,
 		}, {
-			ui.label({ text = "Storage & Cache", fontSize = theme.fontTitle, fontWeight = "bold" }),
-			ui.label({
-				text = "Manage downloads and local cache sizes to free up disk space.",
-				fontSize = theme.fontTitle,
-				color = "on_surface_variant",
+			ui.row({ key = "set-card-head", justify = "space_between", align = "center" }, {
+				ui.column({ gap = 2 }, {
+					ui.label({ text = "Storage & Cache", fontSize = theme.fontTitle, fontWeight = "bold" }),
+					ui.label({
+						text = "Manage downloads and local cache sizes to free up disk space.",
+						fontSize = theme.fontTitle,
+						color = "on_surface_variant",
+					}),
+				}),
+				ui.button({
+					key = "btn-refresh-cache-stats",
+					glyph = is_refreshing and "loader" or "refresh",
+					variant = "ghost",
+					controlSize = "sm",
+					tooltip = is_refreshing and "Refreshing cache stats..." or "Refresh cache stats",
+					onClick = if is_refreshing
+						then nil
+						else function()
+							request("fetch_cache_stats")
+						end,
+				}),
 			}),
 			ui.column({ gap = 0, paddingV = 12, radius = theme.radius }, cache_rows),
 		})
