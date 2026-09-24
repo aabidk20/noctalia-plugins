@@ -72,27 +72,15 @@ local function build_offline()
 		local key = "off-chip-" .. c.id
 		table.insert(
 			chip_elems,
-			ui.row({
+			ui.button({
 				key = key,
-				align = "center",
-				justify = "center",
-				paddingV = 6,
-				paddingH = 16,
-				borderWidth = 1,
-				border = active and "primary" or "outline/0.4",
-				fill = active and "primary" or "surface_variant/0.2",
+				text = c.label,
+				variant = active and "primary" or "outline",
+				controlSize = "sm",
 				onClick = function()
 					view.offline_filter = c.id
 					rerender.call()
 				end,
-				radius = theme.radius,
-			}, {
-				ui.label({
-					text = c.label,
-					fontSize = theme.fontTitle,
-					fontWeight = active and "bold" or "medium",
-					color = active and "on_primary" or "on_surface",
-				}),
 			})
 		)
 	end
