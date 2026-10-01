@@ -1,12 +1,19 @@
 [[plugin]]
 id           = "aabidk20/yt-music"
 name         = "YouTube Music"
-version      = "0.2.8"
+version      = "0.3.0"
 author       = "Aabid"
 license      = "MIT"
 icon         = "brand-youtube-filled"
 description  = "YouTube Music client for Noctalia v5 - miniplayer & full view"
 deprecated   = false
-plugin_api   = 23
+plugin_api   = 26
 tags         = ["music", "media"]
 dependencies = ["yt-dlp", "mpv", "mpv-mpris", "jq", "curl", "nc"]
+
+# Newest release still on plugin_api 23, for shells older than 0.3.0's minimum.
+[[plugin.release]]
+plugin_api = 23
+version    = "0.2.8"
+rev        = "856adfbe8e270afb2c975b5c93b7d8bc47a34fc7"
+updated_at = 1790875516
