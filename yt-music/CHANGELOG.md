@@ -1,9 +1,14 @@
 # Changelog
 
-## [0.3.1] - 2026-09-28
+## [0.3.2] - 2026-10-02
 
 ### Added
-- **Media widget transport**: Next/Previous now work in Noctalia's core media widget (and `playerctl`) while a track plays, advancing the same queue as the miniplayer and full panel.
+ - **Media widget transport**: Next/Previous now work in Noctalia's core media widget (and `playerctl`) while a track plays, advancing the same queue as the miniplayer and full panel.
+ 
+## [0.3.1] - 2026-09-28
+
+### Fixed
+- **Player bar artist fallback**: the subtitle line now shows `Unknown artist` when a track is loaded without artist metadata instead of `Pick something to play`.
 
 ## [0.3.0] - 2026-09-25
 
