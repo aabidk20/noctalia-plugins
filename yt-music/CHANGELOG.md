@@ -1,5 +1,10 @@
 # Changelog
 
+## [0.3.3] - 2026-09-28
+
+### Added
+- **Queue reordering**: drag a track by its grip to move it; the playing track keeps playing and follows its own place. A manual order also supersedes the pre-shuffle snapshot.
+
 ## [0.3.2] - 2026-10-02
 
 ### Added
