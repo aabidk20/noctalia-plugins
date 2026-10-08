@@ -7,8 +7,17 @@ local function build_settings()
 	local items = {}
 	table.insert(
 		items,
-		ui.row({ key = "set-head", paddingV = 16, borderWidth = 0, radius = theme.radius }, {
+		ui.row({ key = "set-head", paddingV = 16, borderWidth = 0, align = "center", justify = "space_between", radius = theme.radius }, {
 			ui.label({ text = "Settings", fontSize = theme.fontHero, fontWeight = "bold" }),
+			ui.button({
+				text = "Plugin settings",
+				glyph = "settings",
+				variant = "outline",
+				controlSize = "sm",
+				onClick = function()
+				noctalia.openSettings("aabidk20/yt-music")
+				end,
+			}),
 		})
 	)
 
