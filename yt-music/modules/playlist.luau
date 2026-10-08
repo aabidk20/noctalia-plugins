@@ -182,25 +182,6 @@ local function prefetch_more(pid)
 	do_fetch(pid, tok)
 end
 
--- keep everything already loaded plus append genuinely-new tracks
-local function merge_keep_existing(existing, incoming)
-	local merged = {}
-	local seen = {}
-	for _, tr in ipairs(existing) do
-		if tr.id then
-			table.insert(merged, tr)
-			seen[tr.id] = true
-		end
-	end
-	for _, tr in ipairs(incoming) do
-		if tr.id and not seen[tr.id] then
-			table.insert(merged, tr)
-			seen[tr.id] = true
-		end
-	end
-	return merged
-end
-
 -- full open/fetch of a playlist (open_playlist)
 function Playlist.open(pid, title)
 	if not pid or pid == "" then

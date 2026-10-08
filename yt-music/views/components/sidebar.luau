@@ -59,7 +59,15 @@ local function sidebar_row(key, icon, label, subtext, active, onClick, thumb_pat
 end
 
 local function build_topbar()
-	return ui.row({ key = "topbar", align = "center", gap = 12, paddingH = 16, paddingV = 10, borderWidth = 0, radius = theme.radius }, {
+	return ui.row({
+		key = "topbar",
+		align = "center",
+		gap = 12,
+		paddingH = 16,
+		paddingV = 10,
+		borderWidth = 0,
+		radius = theme.radius,
+	}, {
 		ui.input({
 			key = "search-input",
 			placeholder = "Search songs, artists, albums",
@@ -114,7 +122,7 @@ local function build_sidebar()
 				align = "center",
 				padding = 6,
 				borderWidth = 0,
-				radius = theme.radius
+				radius = theme.radius,
 			}, {
 				ui.glyph({ name = "wifi-off", size = 15, color = "error" }),
 				ui.label({ text = "Offline mode", fontSize = theme.fontTitle, color = "error" }),
@@ -162,7 +170,14 @@ local function build_sidebar()
 	local is_refreshing_lib = (data.refreshing_library == true)
 	table.insert(
 		sidebar_items,
-		ui.row({ key = "label-library", align = "center", justify = "space_between", padding = 6, borderWidth = 0, radius = theme.radius }, {
+		ui.row({
+			key = "label-library",
+			align = "center",
+			justify = "space_between",
+			padding = 6,
+			borderWidth = 0,
+			radius = theme.radius,
+		}, {
 			ui.label({
 				text = "YOUR LIBRARY",
 				fontSize = theme.fontBody,
@@ -234,22 +249,22 @@ local function build_sidebar()
 		end
 	end
 
-	table.insert(sidebar_items, ui.scroll({ key = "library-scroll", flexGrow = 1, gap = 0, radius = theme.radius }, library_list))
-
-	return ui.column(
-		{
-			key = "sidebar",
-			width = 256,
-			gap = 2,
-			paddingH = 12,
-			paddingV = 12,
-			borderWidth = 1,
-			border = "primary/0.4",
-			fill = "primary/0.04",
-			radius = theme.radius,
-		},
-		sidebar_items
+	table.insert(
+		sidebar_items,
+		ui.scroll({ key = "library-scroll", flexGrow = 1, gap = 0, radius = theme.radius }, library_list)
 	)
+
+	return ui.column({
+		key = "sidebar",
+		width = 256,
+		gap = 2,
+		paddingH = 12,
+		paddingV = 12,
+		borderWidth = 1,
+		border = "primary/0.4",
+		fill = "primary/0.04",
+		radius = theme.radius,
+	}, sidebar_items)
 end
 
 return {

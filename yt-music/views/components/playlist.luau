@@ -149,7 +149,8 @@ local function build_playlist_view()
 			})
 		)
 	end
-	table.insert(header_right, download_btn)	table.insert(
+	table.insert(header_right, download_btn)
+	table.insert(
 		header_right,
 		ui.button({
 			key = "btn-sync-pl",
@@ -224,7 +225,7 @@ local function build_playlist_view()
 		if pl.fetching then
 			empty_text = "Loading tracks..."
 		elseif filtering then
-			empty_text = "No tracks match \"" .. query .. "\"."
+			empty_text = 'No tracks match "' .. query .. '".'
 		elseif state.data.online == false then
 			empty_text = "You're offline — this playlist isn't downloaded."
 		else
@@ -249,10 +250,13 @@ local function build_playlist_view()
 				table.insert(
 					tracks,
 					common.media_row(t, abs_idx, function()
-						request(
-							"replace_queue_and_play",
-							{ item = t, index = queue_pos, queue = queue_items, source_playlist = pl.id, filtered = filtering }
-						)
+						request("replace_queue_and_play", {
+							item = t,
+							index = queue_pos,
+							queue = queue_items,
+							source_playlist = pl.id,
+							filtered = filtering,
+						})
 					end, state.data.player.id == t.id)
 				)
 			end
@@ -262,7 +266,7 @@ local function build_playlist_view()
 		local has_next_page = (view.playlist_view_page < total_pages - 1)
 		-- While filtering, Next only walks the matches: reaching for another
 		-- continuation mid-filter would stream in rows the user never asked for.
-		local can_fetch_more = (not filtering)
+		local can_fetch_more = not filtering
 			and (pl.next_token ~= nil and pl.next_token ~= "")
 			-- YT hands out continuations even for fully-loaded lists; once the
 			-- declared count is on screen there is nothing real left to fetch

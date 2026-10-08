@@ -57,17 +57,20 @@ local function build_offline()
 		}),
 	}
 	if (n_tr + n_cached) > 0 then
-		table.insert(head_children, ui.input({
-			key = "offline-track-filter-input",
-			placeholder = "Filter...",
-			value = view.offline_track_filter or "",
-			width = 270,
-			onChange = function(val)
-				view.offline_track_filter = val or ""
-				view.offline_view_page = 0
-				rerender.call()
-			end,
-		}))
+		table.insert(
+			head_children,
+			ui.input({
+				key = "offline-track-filter-input",
+				placeholder = "Filter...",
+				value = view.offline_track_filter or "",
+				width = 270,
+				onChange = function(val)
+					view.offline_track_filter = val or ""
+					view.offline_view_page = 0
+					rerender.call()
+				end,
+			})
+		)
 	end
 	table.insert(
 		child,
@@ -161,13 +164,16 @@ local function build_offline()
 	if not show_playlists and not show_track_section then
 		table.insert(
 			child,
-			ui.row({ key = "off-empty-filter", align = "center", justify = "center", padding = 40, radius = theme.radius }, {
-				ui.label({
-					text = "No offline items match your filter",
-					fontSize = theme.fontTitle,
-					color = "on_surface_variant",
-				}),
-			})
+			ui.row(
+				{ key = "off-empty-filter", align = "center", justify = "center", padding = 40, radius = theme.radius },
+				{
+					ui.label({
+						text = "No offline items match your filter",
+						fontSize = theme.fontTitle,
+						color = "on_surface_variant",
+					}),
+				}
+			)
 		)
 		return child
 	end
@@ -253,7 +259,6 @@ local function build_offline()
 	end
 
 	if show_track_section then
-
 		local n_total = #visible
 		local total_pages = math.max(1, math.ceil(n_total / PAGE_SIZE))
 		if view.offline_view_page >= total_pages then
@@ -340,7 +345,6 @@ local function build_offline()
 				radius = theme.radius,
 			}, controls)
 		)
-
 	end
 
 	return child

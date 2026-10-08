@@ -110,18 +110,21 @@ local function build_settings()
 
 	table.insert(
 		items,
-		ui.row({ key = "set-head", borderWidth = 0, align = "center", justify = "space_between", radius = theme.radius }, {
-			ui.label({ text = "SETTINGS", fontSize = theme.fontHero, fontWeight = "bold" }),
-			ui.button({
-				text = "Plugin settings",
-				glyph = "settings",
-				variant = "outline",
-				controlSize = "sm",
-				onClick = function()
-					noctalia.openSettings("aabidk20/yt-music")
-				end,
-			}),
-		})
+		ui.row(
+			{ key = "set-head", borderWidth = 0, align = "center", justify = "space_between", radius = theme.radius },
+			{
+				ui.label({ text = "SETTINGS", fontSize = theme.fontHero, fontWeight = "bold" }),
+				ui.button({
+					text = "Plugin settings",
+					glyph = "settings",
+					variant = "outline",
+					controlSize = "sm",
+					onClick = function()
+						noctalia.openSettings("aabidk20/yt-music")
+					end,
+				}),
+			}
+		)
 	)
 	table.insert(items, spacer(8))
 	table.insert(items, build_tabs(tab))

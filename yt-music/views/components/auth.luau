@@ -250,11 +250,17 @@ local function health_fill()
 				meta = ver ~= "" and ver or "ok"
 			end
 
-			table.insert(rows, ui.row({ key = "health-row-" .. name, gap = 10, align = "center", padding = 6, radius = theme.radius }, {
-				ui.glyph({ name = glyph, size = 16, color = color }),
-				ui.label({ text = label, fontSize = theme.fontTitle, color = "on_surface", flexGrow = 1 }),
-				ui.label({ text = meta, fontSize = theme.fontBody, color = "on_surface_variant" }),
-			}))
+			table.insert(
+				rows,
+				ui.row(
+					{ key = "health-row-" .. name, gap = 10, align = "center", padding = 6, radius = theme.radius },
+					{
+						ui.glyph({ name = glyph, size = 16, color = color }),
+						ui.label({ text = label, fontSize = theme.fontTitle, color = "on_surface", flexGrow = 1 }),
+						ui.label({ text = meta, fontSize = theme.fontBody, color = "on_surface_variant" }),
+					}
+				)
+			)
 		end
 	end
 
@@ -323,7 +329,12 @@ local function build_health_page()
 	end
 	return {
 		ui.row({ key = "health-head", align = "center", justify = "space_between", radius = theme.radius }, {
-			ui.label({ text = "Checking dependencies...", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }),
+			ui.label({
+				text = "Checking dependencies...",
+				fontSize = theme.fontHeading,
+				fontWeight = "bold",
+				color = "on_surface_variant",
+			}),
 			refresh_button(),
 		}),
 	}
@@ -369,7 +380,10 @@ local function build_signin_prompt()
 	-- Full width, otherwise the grid and the health block shrink to their
 	-- content inside the centred hero.
 	local body = {
-		ui.column({ key = "cookie-steps", gap = 10, align = "start", width = "fill", radius = theme.radius }, build_steps()),
+		ui.column(
+			{ key = "cookie-steps", gap = 10, align = "start", width = "fill", radius = theme.radius },
+			build_steps()
+		),
 	}
 	for _, item in ipairs(build_browser_grid()) do
 		table.insert(body, item)

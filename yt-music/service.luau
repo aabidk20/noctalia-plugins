@@ -97,13 +97,6 @@ local ACTIONS = {
 			player.play(r.item)
 		end
 	end,
-	play_with_queue = function(r)
-		if r.queue and #r.queue > 0 then
-			playlist.play_queue(r.queue, r.index, r.source_playlist)
-		elseif r.item then
-			player.play(r.item)
-		end
-	end,
 	play_playlist = function(r)
 		playlist.play(r.id or r.playlist_id, r.title)
 	end,

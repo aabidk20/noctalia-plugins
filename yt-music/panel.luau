@@ -46,7 +46,10 @@ local function build_content()
 		end
 	end
 
-	return ui.scroll({ key = "content-scroll", flexGrow = 1, gap = 12, paddingH = 16, paddingV = 12, radius = theme.radius }, content)
+	return ui.scroll(
+		{ key = "content-scroll", flexGrow = 1, gap = 12, paddingH = 16, paddingV = 12, radius = theme.radius },
+		content
+	)
 end
 
 local function render_panel()

@@ -7,32 +7,32 @@ local QueueOrder = require("../../utils/queueorder.luau")
 
 local DRAG_TYPE = "yt-music.queue.track"
 local function on_track_dropped(payload, value)
-    local from, to = tonumber(payload), tonumber(value)
-    if not from or not to then
-        return
-    end
-    local player = state.data.player
-    local insert_at = QueueOrder.move(player.queue, from, to)
-    if insert_at == nil then
-        return
-    end
-    player.index = QueueOrder.follow(player.index, from, insert_at)
-    state.view.hover_key.track = nil
-    rerender.call()
-    request("move_queue_item", { from = from, to = to })
+	local from, to = tonumber(payload), tonumber(value)
+	if not from or not to then
+		return
+	end
+	local player = state.data.player
+	local insert_at = QueueOrder.move(player.queue, from, to)
+	if insert_at == nil then
+		return
+	end
+	player.index = QueueOrder.follow(player.index, from, insert_at)
+	state.view.hover_key.track = nil
+	rerender.call()
+	request("move_queue_item", { from = from, to = to })
 end
 
 local function insertion_zone(slot)
-    return ui.dropZone({
-        key = "q-gap-" .. slot,
-        accepts = { DRAG_TYPE },
-        value = tostring(slot),
-        onDrop = "onQueueTrackDropped",
-        height = 4,
-        radius = 6,
-        expandOnDrag = true,
-        hitSlop = 48,
-    })
+	return ui.dropZone({
+		key = "q-gap-" .. slot,
+		accepts = { DRAG_TYPE },
+		value = tostring(slot),
+		onDrop = "onQueueTrackDropped",
+		height = 4,
+		radius = 6,
+		expandOnDrag = true,
+		hitSlop = 48,
+	})
 end
 
 local function build_queue()
@@ -52,21 +52,27 @@ local function build_queue()
 		}),
 	}
 	if #player.queue > 0 then
-		table.insert(header_children, ui.input({
-			key = "queue-filter-input",
-			placeholder = "Filter...",
-			value = view.queue_filter or "",
-			width = 270,
-			onChange = function(val)
-				view.queue_filter = val or ""
-				view.queue_view_page = 0
-				rerender.call()
-			end,
-		}))
+		table.insert(
+			header_children,
+			ui.input({
+				key = "queue-filter-input",
+				placeholder = "Filter...",
+				value = view.queue_filter or "",
+				width = 270,
+				onChange = function(val)
+					view.queue_filter = val or ""
+					view.queue_view_page = 0
+					rerender.call()
+				end,
+			})
+		)
 	end
 	table.insert(
 		child,
-		ui.row({ key = "queue-head", align = "center", justify = "space_between", radius = theme.radius }, header_children)
+		ui.row(
+			{ key = "queue-head", align = "center", justify = "space_between", radius = theme.radius },
+			header_children
+		)
 	)
 	table.insert(child, ui.row({ key = "spacer-queue-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
@@ -96,23 +102,32 @@ local function build_queue()
 		local page_start = view.queue_view_page * PAGE_SIZE + 1
 		local page_end = math.min(page_start + PAGE_SIZE - 1, total)
 
-        local rows = {}
-        for pos = page_start, page_end do
-            local idx = order[pos]
-            local item = idx and player.queue[idx]
-            if item then
-                local is_current = (idx == player.index)
-                if not filtering then
-                    table.insert(rows, insertion_zone(idx))
-                end
-                table.insert(rows, common.media_row(item, idx, function()
-                    request("play_queue_index", { index = idx })
-                end, is_current, { drag_type = DRAG_TYPE, payload = idx, enabled = (not filtering) and (#player.queue > 1) }))
-            end
-        end
-        if not filtering then
-            table.insert(rows, insertion_zone(page_end + 1))
-        end
+		local rows = {}
+		for pos = page_start, page_end do
+			local idx = order[pos]
+			local item = idx and player.queue[idx]
+			if item then
+				local is_current = (idx == player.index)
+				if not filtering then
+					table.insert(rows, insertion_zone(idx))
+				end
+				table.insert(
+					rows,
+					common.media_row(
+						item,
+						idx,
+						function()
+							request("play_queue_index", { index = idx })
+						end,
+						is_current,
+						{ drag_type = DRAG_TYPE, payload = idx, enabled = (not filtering) and (#player.queue > 1) }
+					)
+				)
+			end
+		end
+		if not filtering then
+			table.insert(rows, insertion_zone(page_end + 1))
+		end
 
 		local has_prev = (view.queue_view_page > 0)
 		local has_next = (view.queue_view_page < total_pages - 1)
@@ -160,30 +175,39 @@ local function build_queue()
 			)
 		end
 
-        if filtering then
-            table.insert(child, ui.column({ key = "queue-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows))
-        else
-            -- catch-all: a drop anywhere on the list goes to the bottom of the page
-            table.insert(child, ui.dropZone({
-                key = "queue-track-list",
-                accepts = { DRAG_TYPE },
-                value = tostring(page_end + 1),
-                onDrop = "onQueueTrackDropped",
-                gap = 0,
-                borderWidth = 0,
-                radius = theme.radius,
-            }, rows))
-        end
-        table.insert(child, ui.row({
-            key = "q-pagination",
-            align = "center",
-            justify = "center",
-            gap = 12,
-            padding = 10,
-            borderWidth = 0,
-            radius = theme.radius
-        }, page_controls))
-    end
+		if filtering then
+			table.insert(
+				child,
+				ui.column({ key = "queue-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows)
+			)
+		else
+			-- catch-all: a drop anywhere on the list goes to the bottom of the page
+			table.insert(
+				child,
+				ui.dropZone({
+					key = "queue-track-list",
+					accepts = { DRAG_TYPE },
+					value = tostring(page_end + 1),
+					onDrop = "onQueueTrackDropped",
+					gap = 0,
+					borderWidth = 0,
+					radius = theme.radius,
+				}, rows)
+			)
+		end
+		table.insert(
+			child,
+			ui.row({
+				key = "q-pagination",
+				align = "center",
+				justify = "center",
+				gap = 12,
+				padding = 10,
+				borderWidth = 0,
+				radius = theme.radius,
+			}, page_controls)
+		)
+	end
 
 	return child
 end

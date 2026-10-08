@@ -55,7 +55,10 @@ local function build_discover()
 			})
 		)
 	end
-	table.insert(view, ui.row({ key = "search-chips-row", align = "center", gap = 8, radius = theme.radius }, chip_elems))
+	table.insert(
+		view,
+		ui.row({ key = "search-chips-row", align = "center", gap = 8, radius = theme.radius }, chip_elems)
+	)
 	table.insert(view, ui.row({ key = "spacer-disc-2", height = 14, borderWidth = 0, radius = theme.radius }))
 
 	local rows = {}
@@ -136,7 +139,10 @@ local function build_discover()
 		end
 	end
 
-	table.insert(view, ui.column({ key = "discover-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows))
+	table.insert(
+		view,
+		ui.column({ key = "discover-track-list", gap = 0, borderWidth = 0, radius = theme.radius }, rows)
+	)
 
 	return view
 end

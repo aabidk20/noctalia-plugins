@@ -20,7 +20,7 @@ local function build_library()
 		tooltip = is_refreshing_lib and "Refreshing library..." or "Refresh library",
 		onClick = is_refreshing_lib and nil or function()
 			request("refresh_library", {})
-			end,
+		end,
 	})
 	local head_children = {
 		ui.column({ gap = 4, radius = theme.radius }, {
@@ -33,19 +33,22 @@ local function build_library()
 		}),
 	}
 	if #data.library > 0 then
-		table.insert(head_children, ui.row({ key = "lib-head-actions", gap = 8, align = "center" }, {
-			ui.input({
-				key = "library-filter-input",
-				placeholder = "Filter...",
-				value = view.library_text_filter or "",
-				width = 270,
-				onChange = function(val)
-					view.library_text_filter = val or ""
-					rerender.call()
-				end,
-			}),
-			sync_btn,
-		}))
+		table.insert(
+			head_children,
+			ui.row({ key = "lib-head-actions", gap = 8, align = "center" }, {
+				ui.input({
+					key = "library-filter-input",
+					placeholder = "Filter...",
+					value = view.library_text_filter or "",
+					width = 270,
+					onChange = function(val)
+						view.library_text_filter = val or ""
+						rerender.call()
+					end,
+				}),
+				sync_btn,
+			})
+		)
 	else
 		table.insert(head_children, sync_btn)
 	end
@@ -183,7 +186,14 @@ local function build_library()
 					end,
 					onHover = "onCardHover",
 				}, {
-					common.thumb_or_placeholder(thumb_path, 200, icon_name, 38, "primary", is_hovered and "primary/0.2" or "surface_variant/0.6"),
+					common.thumb_or_placeholder(
+						thumb_path,
+						200,
+						icon_name,
+						38,
+						"primary",
+						is_hovered and "primary/0.2" or "surface_variant/0.6"
+					),
 					ui.column({ gap = 2, flexGrow = 1, radius = theme.radius }, {
 						ui.label({
 							text = item.title,

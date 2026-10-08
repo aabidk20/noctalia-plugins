@@ -635,7 +635,6 @@ function Player.move(from, to)
 	publish()
 end
 
-
 function Player.append_to_queue(track)
 	table.insert(state.player.queue, track)
 end
@@ -677,14 +676,19 @@ local function handle_stream_line(line)
 
 	-- Genuine failures only: a skip aborts with "stop", a natural end "eof".
 	if data.event ~= "property-change" then
-        if data.event == "end-file" and data.reason == "error" and state.player.status == "playing" then
-            log("stream: end-file error (" .. tostring(data.file_error or "?") .. ") entry=" .. tostring(data.playlist_entry_id))
-            mpv.kill()
-            state.player.status = "stopped"
-            state.status_text = "Playlist failed to start: " .. tostring(state.player.title or "")
-            publish()
-            noctalia.notify("Youtube Music", state.status_text)
-        end
+		if data.event == "end-file" and data.reason == "error" and state.player.status == "playing" then
+			log(
+				"stream: end-file error ("
+					.. tostring(data.file_error or "?")
+					.. ") entry="
+					.. tostring(data.playlist_entry_id)
+			)
+			mpv.kill()
+			state.player.status = "stopped"
+			state.status_text = "Playlist failed to start: " .. tostring(state.player.title or "")
+			publish()
+			noctalia.notify("Youtube Music", state.status_text)
+		end
 		if data.request_id == 100 then
 			local pos = tonumber(data.data)
 			if
@@ -717,7 +721,7 @@ local function handle_stream_line(line)
 		return
 	end
 	if name == "playlist-pos" then
-        -- Dummy/URL/dummy: a live 0/2 move is a user skip (failures handled above).
+		-- Dummy/URL/dummy: a live 0/2 move is a user skip (failures handled above).
 		local pos = tonumber(data.data)
 		if pos ~= 0 and pos ~= 2 then
 			return
