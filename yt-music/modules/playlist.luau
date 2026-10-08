@@ -54,7 +54,7 @@ end
 -- roughly 5MB for a 434-track list. Stamped only on completion: a capped or
 -- abandoned walk must not mark a partial list as fresh. In-memory on purpose,
 -- a restarted shell re-walks once.
-local WALK_TTL_SECONDS = 5 * 60
+local WALK_TTL_SECONDS = 30 * 60
 local walk_stamps = {}
 
 -- A stamp records the row count as well as the time, so it certifies *that*
@@ -227,8 +227,8 @@ function Playlist.open(pid, title)
 				.. "' is "
 				.. (os.time() - walk_stamps[pid].at)
 				.. "s old, inside the "
-				.. WALK_TTL_SECONDS
-				.. "s TTL, skipping fetch"
+				.. math.floor(WALK_TTL_SECONDS / 60)
+				.. "min TTL, skipping fetch"
 		)
 		return
 	end
