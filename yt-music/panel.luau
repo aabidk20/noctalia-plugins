@@ -79,8 +79,6 @@ local function render_panel()
 
 	table.insert(body, ui.row({ key = "player-spacer", height = 12, borderWidth = 0, radius = theme.radius }))
 
-	table.insert(body, ui.row({ key = "sep-player", height = 1, fill = "on_surface/0.3", borderWidth = 0, radius = theme.radius }))
-
 	table.insert(body, playerbar_comp.build())
 
 	panel.render(ui.column({

@@ -214,11 +214,7 @@ local function build_home()
 		end
 	end
 
-	table.insert(feed, ui.row({ key = "spacer-above-sep-mixes", height = 4, borderWidth = 0, radius = theme.radius }))
-	table.insert(feed, ui.separator({ key = "sep-mixes", color = "outline/0.3" }))
-	table.insert(feed, ui.row({ key = "spacer-library", height = 4, borderWidth = 0, radius = theme.radius }))
-
-	-- Temporarily hidden YOUR LIBRARY section for speed test
+	-- YOUR LIBRARY section temporarily hidden for speed test (its separator went with it)
 	-- table.insert(feed, ui.label({ text = "YOUR LIBRARY", fontSize = theme.fontHeading, fontWeight = "bold", color = "on_surface_variant" }))
 
 	return feed
