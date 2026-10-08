@@ -233,21 +233,14 @@ local function track_actions(item, row_key, trailing)
 
 	local menu_button = ui.button({
 		key = row_key .. "-menu",
-		glyph = is_expanded and "x" or "dots-vertical",
-		variant = is_expanded and "secondary" or "ghost",
+		glyph = "dots-vertical",
+		variant = "ghost",
 		controlSize = "sm",
-		tooltip = is_expanded and "Close options" or "Track options",
+		tooltip = "Right click for menu",
 		visible = true,
-		onClick = function()
-			if state.view.expanded_track_id == item.id and state.view.expanded_row_key == row_key then
-				state.collapse_track()
-			else
-				state.view.expanded_track_id = item.id
-				state.view.expanded_row_key = row_key
-				state.view.hover_key.track = row_key
-			end
-			rerender.call()
-		end,
+		-- Left click is a deliberate no-op so the button swallows the row's
+		-- play onClick; the flyout opens on hover, the menu on right click.
+		onClick = function() end,
 		onRightClick = function()
 			state.open_track_context_menu(item)
 		end,
