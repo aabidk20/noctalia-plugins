@@ -265,11 +265,11 @@ local function track_actions(item, row_key, trailing)
 	})
 end
 
-local function media_row(item, idx, custom_click, is_active, drag)
+local function media_row(item, idx, custom_click, is_active, drag, key_prefix)
 	local handler = custom_click or function()
 		state.play_item(item)
 	end
-	local row_key = "track-" .. idx
+	local row_key = (key_prefix and (key_prefix .. "-") or "track-") .. idx
 	local is_expanded = (
 		state.view.expanded_track_id ~= nil
 		and item.id ~= nil

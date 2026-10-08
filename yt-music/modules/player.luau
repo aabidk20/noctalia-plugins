@@ -91,11 +91,17 @@ local function player_set(item, stream_url)
 
 	if api and api.cache_audio and item.id and item.id ~= "" then
 		api.cache_audio(item.id, function(ok)
-			-- Keep the tick/bolt state honest right away instead of waiting
-			-- for the next boot-time directory scan.
-			if ok and not state.cached_audio_ids[item.id] then
+			if ok then
+				local was_cached = (state.cached_audio_ids and state.cached_audio_ids[item.id] == true)
+				if not state.cached_audio_ids then
+					state.cached_audio_ids = {}
+				end
 				state.cached_audio_ids[item.id] = true
-				publish()
+				local library = require("./library.luau")
+				library.note_cached_track(item)
+				if not was_cached then
+					library.audit_downloaded_playlists()
+				end
 			end
 		end)
 	end

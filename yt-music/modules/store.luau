@@ -57,6 +57,7 @@ function Store.publish()
 	snap.cached_audio_ids = Store.state.cached_audio_ids
 	snap.downloaded_playlist_ids = Store.state.downloaded_playlist_ids
 	snap.offline_tracks = Store.state.offline_tracks
+	snap.cached_tracks = Store.state.cached_tracks
 	snap.recent_playlists = Store.state.recent_playlists
 	snap.refreshing_cache_stats = Store.state.refreshing_cache_stats
 	snap.settings = Store.state.settings

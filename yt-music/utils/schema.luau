@@ -36,6 +36,7 @@ local function new()
 		downloaded_playlist_ids = {},
 		downloading_playlist_ids = {},
 		offline_tracks = {},
+		cached_tracks = {},
 		offline_meta = {},
 		online = true,
 		artist = { id = "", title = "", thumbnail_url = "", thumb_path = nil },

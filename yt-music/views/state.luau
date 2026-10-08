@@ -14,6 +14,7 @@ local view = {
 	playlist_pending_advance = false,
 	queue_view_page = 0,
 	offline_view_page = 0,
+	offline_filter = "all",
 	loading_track_id = nil,
 	expanded_track_id = nil,
 	expanded_row_key = nil,
