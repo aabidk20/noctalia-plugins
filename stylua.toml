@@ -1,0 +1,38 @@
+# Luau formatting for this repo. Run with:
+#
+#   nix run nixpkgs#stylua -- yt-music
+#
+# Every value below describes how yt-music is already written, so formatting a
+# clean tree is a no-op. They are pinned so the result does not drift with
+# whatever stylua version a contributor happens to run.
+#
+# Note: yt-music/noctalia.d.luau is a host type-definition file (it uses
+# `declare`), which stylua cannot parse. Keep it out of any format run.
+
+syntax = "Luau"
+
+# Tabs throughout, no space indentation. Continuations step in four columns.
+indent_type = "Tabs"
+indent_width = 4
+
+# Code wraps a little under 120. The only longer lines are a jq string and a
+# comment, neither of which can wrap.
+column_width = 120
+
+line_endings = "Unix"
+
+# Double quotes, except where single quotes avoid escaping an inner double
+# quote, e.g. 'No tracks match "' .. q.
+quote_style = "AutoPreferDouble"
+
+# Calls are always written f(...).
+call_parentheses = "Always"
+
+# No one-line `if x then y end`, and no blank line directly inside a block.
+collapse_simple_statement = "Never"
+block_newline_gaps = "Never"
+space_after_function_names = "Never"
+
+# Requires are listed in a deliberate order (theme, state, request, common,
+# rerender). Sorting them would rewrite 27 files.
+sort_requires = { enabled = false }
