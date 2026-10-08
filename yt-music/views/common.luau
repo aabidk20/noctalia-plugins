@@ -38,6 +38,23 @@ local function fmt_count(n)
 	return tostring(n)
 end
 
+-- Local text filter using the host's native matcher. Empty query matches
+-- everything; otherwise true when the pattern fuzzy-matches. Falls back to
+-- a plain substring search when the host matcher is unavailable.
+local function fuzzy_match(query, text)
+	if not query or query == "" then
+		return true
+	end
+	text = tostring(text or "")
+	if text == "" then
+		return false
+	end
+	if noctalia.fuzzyScore then
+		return noctalia.fuzzyScore(query, text) ~= nil
+	end
+	return text:lower():find(query:lower(), 1, true) ~= nil
+end
+
 local function thumb_or_placeholder(path, size, glyph, glyph_size, color, fill)
 	if path and file_exists_cached(path) then
 		return ui.image({ path = path, width = size, height = size, fit = "cover", radius = theme.radius })
@@ -398,6 +415,7 @@ return {
 	fmt_pos = fmt_pos,
 	fmt_count = fmt_count,
 	thumb_or_placeholder = thumb_or_placeholder,
+	fuzzy_match = fuzzy_match,
 	icon_btn = icon_btn,
 	chunk_rows = chunk_rows,
 	track_actions = track_actions,

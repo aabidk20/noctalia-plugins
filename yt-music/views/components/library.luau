@@ -12,28 +12,46 @@ local function build_library()
 	local filter = view.library_filter or "all"
 
 	local is_refreshing_lib = (data.refreshing_library == true)
-	table.insert(
-		child,
-		ui.row({ key = "lib-head", align = "center", justify = "space_between", radius = theme.radius }, {
-			ui.column({ gap = 4, radius = theme.radius }, {
-				ui.label({ text = "LIBRARY", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
-				ui.label({
-					text = #data.library .. " items in your YouTube Music library",
-					fontSize = theme.fontTitle,
-					color = "on_surface_variant",
-				}),
+	local sync_btn = ui.button({
+		key = "btn-sync-lib-head",
+		glyph = is_refreshing_lib and "loader" or "refresh",
+		variant = "secondary",
+		controlSize = "md",
+		tooltip = is_refreshing_lib and "Refreshing library..." or "Refresh library",
+		onClick = is_refreshing_lib and nil or function()
+			request("refresh_library", {})
+			end,
+	})
+	local head_children = {
+		ui.column({ gap = 4, radius = theme.radius }, {
+			ui.label({ text = "LIBRARY", fontSize = theme.fontHero, fontWeight = "bold", color = "on_surface" }),
+			ui.label({
+				text = #data.library .. " items in your YouTube Music library",
+				fontSize = theme.fontTitle,
+				color = "on_surface_variant",
 			}),
-			ui.button({
-				key = "btn-sync-lib-head",
-				glyph = is_refreshing_lib and "loader" or "refresh",
-				variant = "secondary",
-				controlSize = "md",
-				tooltip = is_refreshing_lib and "Refreshing library..." or "Refresh library",
-				onClick = is_refreshing_lib and nil or function()
-					request("refresh_library", {})
+		}),
+	}
+	if #data.library > 0 then
+		table.insert(head_children, ui.row({ key = "lib-head-actions", gap = 8, align = "center" }, {
+			ui.input({
+				key = "library-filter-input",
+				placeholder = "Filter...",
+				value = view.library_text_filter or "",
+				width = 270,
+				onChange = function(val)
+					view.library_text_filter = val or ""
+					rerender.call()
 				end,
 			}),
-		})
+			sync_btn,
+		}))
+	else
+		table.insert(head_children, sync_btn)
+	end
+	table.insert(
+		child,
+		ui.row({ key = "lib-head", align = "center", justify = "space_between", radius = theme.radius }, head_children)
 	)
 
 	table.insert(child, ui.row({ key = "spacer-lib-1", height = 8, borderWidth = 0, radius = theme.radius }))
@@ -68,6 +86,7 @@ local function build_library()
 	table.insert(child, ui.row({ key = "spacer-lib-2", height = 14, borderWidth = 0, radius = theme.radius }))
 
 	-- Filter items
+	local query = view.library_text_filter or ""
 	local items = {}
 	local liked_item = nil
 	for _, item in ipairs(data.library) do
@@ -87,6 +106,10 @@ local function build_library()
 			matches = true
 		elseif filter == "artists" and is_artist then
 			matches = true
+		end
+
+		if matches then
+			matches = common.fuzzy_match(query, (item.title or "") .. " " .. (item.subtitle or ""))
 		end
 
 		if matches then
