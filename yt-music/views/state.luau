@@ -18,6 +18,7 @@ local view = {
 	offline_view_page = 0,
 	offline_track_filter = "",
 	offline_filter = "all",
+	settings_tab = "cache",
 	loading_track_id = nil,
 	expanded_track_id = nil,
 	expanded_row_key = nil,
