@@ -15,6 +15,10 @@ local log = logger.module("ytm", "playlist")
 -- so a slow fetch for playlist A can never render into (or cache under) B.
 local open_seq = 0
 
+-- True when the live queue was built from a filtered view of the current
+-- playlist, so the walk must not append the tracks that filter hid.
+local queue_is_filtered = false
+
 -- Forward declaration: Playlist.open fires one extra hop through do_fetch to
 -- collect YT's suggestion shelf once all real tracks are loaded.
 local do_fetch
@@ -100,12 +104,39 @@ local function ensure_thumbs(kind)
 	end
 end
 
+-- Bring the live queue up to the visible list in one pass, once the list has
+-- stopped changing. Doing it here instead of inside the page loop is what makes
+-- it safe: it compares against the queue itself, so the tracks the cache
+-- already queued are seen and skipped, and duplicates cannot happen. Cost is
+-- one walk over each list rather than one per fetched page.
+local function sync_queue(pid)
+	if queue_is_filtered then
+		return
+	end
+	if state.player.source_playlist ~= pid then
+		return
+	end
+	local queued = {}
+	for _, t in ipairs(state.player.queue) do
+		if t.id then
+			queued[t.id] = true
+		end
+	end
+	for _, t in ipairs(state.playlist.tracks) do
+		if t.id and not queued[t.id] then
+			queued[t.id] = true
+			player.append_to_queue(t)
+		end
+	end
+end
+
 -- Render + persist the visible list. While a staged walk is in flight the cache
 -- on screen is unchanged, so there is nothing to render or save yet.
 local function settle(pid)
 	if staging and staging_pid == pid then
 		return
 	end
+	sync_queue(pid)
 	store.publish()
 	save_cache(pid)
 	ensure_thumbs("playlist")
@@ -297,6 +328,8 @@ function Playlist.play(pid, title)
 	-- pages accumulating for another playlist must not leak into it.
 	staging = nil
 	staging_pid = nil
+	-- The whole playlist was queued, so the walk may keep topping it up.
+	queue_is_filtered = false
 	state.playlist.id = pid
 	state.playlist.title = tostring(title or "Playlist")
 	local cached = load_cached(pid)
@@ -408,13 +441,9 @@ do_fetch = function(pid, fetch_token)
 			end
 
 			local added_count = 0
-			local queue_sync = (state.player.source_playlist == pid)
 			for _, tr in ipairs(real) do
 				if tr.id and not existing[tr.id] then
 					table.insert(dest, tr)
-					if queue_sync then
-						player.append_to_queue(tr)
-					end
 					existing[tr.id] = true
 					added_count = added_count + 1
 				end
@@ -536,7 +565,7 @@ function Playlist.fetch_next_page(pid, token)
 end
 
 -- play a provided queue, remembering the source playlist (replace_queue_and_play)
-function Playlist.play_queue(queue, index, source_playlist)
+function Playlist.play_queue(queue, index, source_playlist, filtered)
 	if queue and #queue > 0 then
 		if source_playlist and source_playlist ~= "" then
 			local spid = tostring(source_playlist)
@@ -552,6 +581,9 @@ function Playlist.play_queue(queue, index, source_playlist)
 			end
 		end
 		state.player.source_playlist = source_playlist
+		-- A filtered queue is a subset of the playlist, so appending the tracks
+		-- the filter hid would turn it back into the whole playlist mid-playback.
+		queue_is_filtered = (filtered == true)
 		player.play_index(index or 1, queue)
 	else
 		log("replace_queue_and_play: empty or missing queue")

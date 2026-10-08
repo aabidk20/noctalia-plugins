@@ -92,7 +92,7 @@ local ACTIONS = {
 	end,
 	replace_queue_and_play = function(r)
 		if r.queue and #r.queue > 0 then
-			playlist.play_queue(r.queue, r.index, r.source_playlist)
+			playlist.play_queue(r.queue, r.index, r.source_playlist, r.filtered)
 		elseif r.item then
 			player.play(r.item)
 		end

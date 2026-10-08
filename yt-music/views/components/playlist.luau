@@ -93,6 +93,34 @@ local function build_playlist_view()
 		})
 	end
 
+	-- Which rows are on screen: the filter decides, and the pagination below
+	-- walks this list. Filter first, then paginate, exactly like the queue page.
+	local query = view.playlist_text_filter or ""
+	local filtering = query ~= ""
+	local order = {}
+	if filtering then
+		for idx, item in ipairs(pl.tracks) do
+			if common.fuzzy_match(query, (item.title or "") .. " " .. (item.artist or "")) then
+				table.insert(order, idx)
+			end
+		end
+	else
+		for idx = 1, #pl.tracks do
+			order[idx] = idx
+		end
+	end
+
+	-- What a click queues: the matches when filtering, otherwise the playlist
+	-- itself (shared, not copied). Rows and Play all both use this, so the queue
+	-- always matches what is on screen.
+	local queue_items = pl.tracks
+	if filtering then
+		queue_items = {}
+		for _, idx in ipairs(order) do
+			table.insert(queue_items, pl.tracks[idx])
+		end
+	end
+
 	-- Subtitle mirrors the queue/offline headers: one muted line under the title.
 	local declared_total = state.data.playlist.count
 	local playlist_total_text
@@ -121,8 +149,7 @@ local function build_playlist_view()
 			})
 		)
 	end
-	table.insert(header_right, download_btn)
-	table.insert(
+	table.insert(header_right, download_btn)	table.insert(
 		header_right,
 		ui.button({
 			key = "btn-sync-pl",
@@ -144,7 +171,17 @@ local function build_playlist_view()
 			variant = "primary",
 			controlSize = "md",
 			onClick = function()
-				state.play_playlist(pl)
+				-- Filtered: queue what is on screen. Otherwise stay on the existing
+				-- path, which also covers the window where a refresh has cleared the
+				-- list and only the cache is available to play.
+				if filtering and #queue_items > 0 then
+					request(
+						"replace_queue_and_play",
+						{ index = 1, queue = queue_items, source_playlist = pl.id, filtered = true }
+					)
+				else
+					state.play_playlist(pl)
+				end
 			end,
 		})
 	)
@@ -172,22 +209,6 @@ local function build_playlist_view()
 
 	table.insert(child, ui.row({ key = "spacer-pl-1", height = 8, borderWidth = 0, radius = theme.radius }))
 
-	local all_total = #pl.tracks
-	local query = view.playlist_text_filter or ""
-	local filtering = query ~= ""
-	-- Filter first, then paginate the matches, exactly like the queue page.
-	local order = {}
-	if filtering then
-		for idx, item in ipairs(pl.tracks) do
-			if common.fuzzy_match(query, (item.title or "") .. " " .. (item.artist or "")) then
-				table.insert(order, idx)
-			end
-		end
-	else
-		for idx = 1, all_total do
-			order[idx] = idx
-		end
-	end
 	local total = #order
 
 	local total_pages = math.max(1, math.ceil(total / PAGE_SIZE))
@@ -221,13 +242,16 @@ local function build_playlist_view()
 		for pos = page_start, page_end do
 			local abs_idx = order[pos]
 			local t = abs_idx and pl.tracks[abs_idx]
+			-- Position within the queued list: the matches when filtering, the
+			-- playlist otherwise (identical to abs_idx without a filter).
+			local queue_pos = pos
 			if t then
 				table.insert(
 					tracks,
 					common.media_row(t, abs_idx, function()
 						request(
 							"replace_queue_and_play",
-							{ item = t, index = abs_idx, queue = pl.tracks, source_playlist = pl.id }
+							{ item = t, index = queue_pos, queue = queue_items, source_playlist = pl.id, filtered = filtering }
 						)
 					end, state.data.player.id == t.id)
 				)
