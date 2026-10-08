@@ -18,6 +18,7 @@ local view = {
 	offline_view_page = 0,
 	offline_track_filter = "",
 	offline_filter = "all",
+	playlist_text_filter = "",
 	settings_tab = "cache",
 	loading_track_id = nil,
 	expanded_track_id = nil,
@@ -167,6 +168,7 @@ local function open_playlist(pl)
 	collapse_track()
 	view.content_page = "playlist"
 	view.playlist_view_page = 0
+	view.playlist_text_filter = ""
 	data.playlist.id = tostring(pl.id or "")
 	data.playlist.title = tostring(pl.title or "Playlist")
 	data.playlist.count = tonumber(pl.count) or 0

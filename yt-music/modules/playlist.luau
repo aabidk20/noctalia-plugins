@@ -53,13 +53,21 @@ end
 local WALK_TTL_SECONDS = 5 * 60
 local walk_stamps = {}
 
-local function walk_is_fresh(pid)
-	local at = walk_stamps[pid]
-	return at ~= nil and (os.time() - at) < WALK_TTL_SECONDS
+-- A stamp records the row count as well as the time, so it certifies *that*
+-- complete list rather than merely "a walk finished recently". Without the
+-- count, a later partial walk (cache cleared, cold open, walk abandoned) could
+-- leave a short cache under a still-fresh stamp, and the next open would skip
+-- and quietly serve, and filter, the short list.
+local function walk_is_fresh(pid, cached_rows)
+	local stamp = walk_stamps[pid]
+	if not stamp or stamp.rows ~= cached_rows then
+		return false
+	end
+	return (os.time() - stamp.at) < WALK_TTL_SECONDS
 end
 
-local function stamp_walk(pid)
-	walk_stamps[pid] = os.time()
+local function stamp_walk(pid, rows)
+	walk_stamps[pid] = { at = os.time(), rows = rows }
 end
 
 local function load_cached(pid)
@@ -200,12 +208,12 @@ function Playlist.open(pid, title)
 	-- A complete walk landed inside the TTL: trust the cache and skip the
 	-- network entirely. Refresh deliberately does not come through here, so an
 	-- explicit refresh always re-walks.
-	if had_cache and walk_is_fresh(pid) then
+	if had_cache and walk_is_fresh(pid, #cached) then
 		log(
 			"open: cache for '"
 				.. pid
 				.. "' is "
-				.. (os.time() - walk_stamps[pid])
+				.. (os.time() - walk_stamps[pid].at)
 				.. "s old, inside the "
 				.. WALK_TTL_SECONDS
 				.. "s TTL, skipping fetch"
@@ -265,7 +273,7 @@ function Playlist.open(pid, title)
 				-- Already complete: swap the fresh list in, then spend one hop
 				-- collecting the suggestion shelf for the bottom section.
 				commit_staging(pid)
-				stamp_walk(pid)
+				stamp_walk(pid, #state.playlist.tracks)
 				if res.next_token and res.next_token ~= "" then
 					noctalia.runAsync("true", function()
 						do_fetch(pid, res.next_token)
@@ -440,7 +448,7 @@ do_fetch = function(pid, fetch_token)
 				state.playlist.next_token = nil
 				state.playlist.fetching = false
 				commit_staging(pid)
-				stamp_walk(pid)
+				stamp_walk(pid, #state.playlist.tracks)
 				settle(pid)
 				return
 			end
@@ -488,7 +496,13 @@ do_fetch = function(pid, fetch_token)
 			-- cached list stays on screen untouched.
 			if finished then
 				commit_staging(pid)
-				stamp_walk(pid)
+				stamp_walk(pid, #state.playlist.tracks)
+				-- Every continuation is spent, so the rows in hand ARE the real
+				-- total. YT's declared count can sit higher (tracks it will not
+				-- serve), which would otherwise read "434 of 437 total" forever
+				-- with nothing left to fetch. Only correct once the walk is done —
+				-- a capped walk must keep the declared count so Next stays offered.
+				state.playlist.count = #state.playlist.tracks
 			end
 			settle(pid)
 			-- Keep walking the continuations; runAsync defers the call so the
